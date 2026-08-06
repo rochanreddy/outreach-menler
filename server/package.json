@@ -1,0 +1,23 @@
+{
+  "name": "menler-outreach-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Menler outbound outreach — institution contact DB + sequenced email campaigns.",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "import": "node scripts/importCsv.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.0"
+  }
+}

@@ -1,0 +1,246 @@
+import { Router } from 'express';
+
+import { Campaign } from '../models/Campaign.js';
+import { Contact } from '../models/Contact.js';
+import { Enrollment } from '../models/Enrollment.js';
+import { Institution } from '../models/Institution.js';
+import { Message } from '../models/Message.js';
+import { isSuppressed } from '../models/Suppression.js';
+import { requireAuth } from '../middleware/auth.js';
+import { runTick, withinSendWindow } from '../utils/engine.js';
+import { sendOutreachMail, verifyMailer } from '../utils/mailer.js';
+import { buildHtml, buildText, contactVars, fillPlaceholders } from '../utils/render.js';
+
+const router = Router();
+
+/* ── CRUD ────────────────────────────────────────────────────────────────── */
+
+router.get('/', requireAuth, async (_req, res) => {
+  const rows = await Campaign.find().sort('-updatedAt').lean();
+  res.json({ rows });
+});
+
+router.get('/:id', requireAuth, async (req, res) => {
+  const campaign = await Campaign.findById(req.params.id).lean();
+  if (!campaign) return res.status(404).json({ error: 'Not found.' });
+  const counts = await Enrollment.aggregate([
+    { $match: { campaign: campaign._id } },
+    { $group: { _id: '$status', n: { $sum: 1 } } },
+  ]);
+  res.json({ ...campaign, enrollmentsByStatus: Object.fromEntries(counts.map((c) => [c._id, c.n])) });
+});
+
+router.post('/', requireAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!b.name?.trim()) return res.status(400).json({ error: 'A campaign name is required.' });
+    const campaign = await Campaign.create({ ...b, name: b.name.trim(), status: 'draft' });
+    res.status(201).json(campaign);
+  } catch (err) {
+    console.error('campaign create', err);
+    res.status(500).json({ error: 'Could not create the campaign.' });
+  }
+});
+
+router.patch('/:id', requireAuth, async (req, res) => {
+  try {
+    const allowed = ['name', 'fromName', 'fromEmail', 'replyTo', 'steps',
+      'dailyCap', 'sendWindowStart', 'sendWindowEnd', 'weekdaysOnly'];
+    const update = {};
+    for (const k of allowed) if (k in (req.body || {})) update[k] = req.body[k];
+    const campaign = await Campaign.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!campaign) return res.status(404).json({ error: 'Not found.' });
+    res.json(campaign);
+  } catch (err) {
+    console.error('campaign update', err);
+    res.status(500).json({ error: 'Could not update.' });
+  }
+});
+
+/* Activate / pause. Activating is the only thing that lets mail leave. */
+router.post('/:id/status', requireAuth, async (req, res) => {
+  const { status } = req.body || {};
+  if (!['draft', 'active', 'paused', 'done'].includes(status)) {
+    return res.status(400).json({ error: 'Unknown status.' });
+  }
+  const campaign = await Campaign.findById(req.params.id);
+  if (!campaign) return res.status(404).json({ error: 'Not found.' });
+
+  if (status === 'active') {
+    if (!campaign.steps.length) return res.status(400).json({ error: 'Add at least one step first.' });
+    if (!campaign.fromEmail) return res.status(400).json({ error: 'Set a from-address first.' });
+    const mail = await verifyMailer();
+    if (!mail.ok) return res.status(400).json({ error: `Email is not ready: ${mail.error}` });
+  }
+  campaign.status = status;
+  await campaign.save();
+  res.json(campaign);
+});
+
+/* ── Enrolment ───────────────────────────────────────────────────────────────
+ * Adds contacts to a campaign. Filters mirror the contacts list so you can
+ * enrol "every TPO in Telangana" without hand-picking. Suppressed / bounced /
+ * unsubscribed contacts are never enrolled. */
+router.post('/:id/enroll', requireAuth, async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'Not found.' });
+
+    const b = req.body || {};
+    let contacts;
+    if (Array.isArray(b.contactIds) && b.contactIds.length) {
+      contacts = await Contact.find({ _id: { $in: b.contactIds } });
+    } else {
+      const instFilter = {};
+      if (b.state) instFilter.state = b.state;
+      if (b.city) instFilter.city = b.city;
+      if (b.status) instFilter.status = b.status;
+      const instIds = Object.keys(instFilter).length
+        ? (await Institution.find(instFilter).select('_id').lean()).map((i) => i._id)
+        : null;
+
+      const filter = { unsubscribed: false, bounced: false };
+      if (instIds) filter.institution = { $in: instIds };
+      if (b.designation) filter.designation = new RegExp(b.designation, 'i');
+      contacts = await Contact.find(filter).limit(Number(b.limit) || 500);
+    }
+
+    const out = { enrolled: 0, skipped: 0 };
+    for (const contact of contacts) {
+      if (!contact.isSendable() || await isSuppressed(contact.email)) { out.skipped += 1; continue; }
+      try {
+        await Enrollment.create({
+          campaign: campaign._id,
+          contact: contact._id,
+          institution: contact.institution,
+          nextSendAt: new Date(),
+        });
+        out.enrolled += 1;
+      } catch (err) {
+        out.skipped += 1; // duplicate key = already enrolled
+      }
+    }
+    campaign.stats.enrolled += out.enrolled;
+    await campaign.save();
+    res.json(out);
+  } catch (err) {
+    console.error('enroll', err);
+    res.status(500).json({ error: 'Could not enrol contacts.' });
+  }
+});
+
+router.get('/:id/enrollments', requireAuth, async (req, res) => {
+  const filter = { campaign: req.params.id };
+  if (req.query.status) filter.status = req.query.status;
+  const rows = await Enrollment.find(filter)
+    .populate('contact', 'name email designation')
+    .populate('institution', 'name city state')
+    .sort('-updatedAt').limit(200).lean();
+  res.json({ rows });
+});
+
+/* Mark a reply — stops every follow-up for that contact instantly. */
+router.post('/enrollments/:id/replied', requireAuth, async (req, res) => {
+  const enrollment = await Enrollment.findById(req.params.id);
+  if (!enrollment) return res.status(404).json({ error: 'Not found.' });
+  enrollment.status = 'replied';
+  enrollment.repliedAt = new Date();
+  enrollment.nextSendAt = null;
+  await enrollment.save();
+
+  await Campaign.updateOne({ _id: enrollment.campaign }, { $inc: { 'stats.replied': 1 } });
+  await Contact.updateOne({ _id: enrollment.contact }, { lastRepliedAt: new Date() });
+  await Institution.updateOne(
+    { _id: enrollment.institution, status: { $in: ['new', 'contacted'] } },
+    { status: 'replied', lastRepliedAt: new Date() },
+  );
+  res.json({ ok: true });
+});
+
+/* ── Preview & test ──────────────────────────────────────────────────────── */
+
+/** Render a step against a real contact — catches broken placeholders early. */
+router.post('/:id/preview', requireAuth, async (req, res) => {
+  const campaign = await Campaign.findById(req.params.id);
+  if (!campaign) return res.status(404).json({ error: 'Not found.' });
+  const step = campaign.steps[Number(req.body?.stepIndex) || 0];
+  if (!step) return res.status(400).json({ error: 'No such step.' });
+
+  const contact = req.body?.contactId
+    ? await Contact.findById(req.body.contactId)
+    : await Contact.findOne({ unsubscribed: false, bounced: false });
+  if (!contact) return res.status(400).json({ error: 'Add a contact first to preview against.' });
+
+  const institution = await Institution.findById(contact.institution);
+  const vars = contactVars(contact, institution);
+  res.json({
+    to: contact.email,
+    subject: fillPlaceholders(step.subject, vars),
+    text: buildText(fillPlaceholders(step.body, vars), {
+      contactId: contact._id, senderSignature: process.env.OUTREACH_SIGNATURE || '',
+    }),
+  });
+});
+
+/** Send one step to your own inbox — always do this before activating. */
+router.post('/:id/test', requireAuth, async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'Not found.' });
+    const to = String(req.body?.to || '').trim();
+    if (!to) return res.status(400).json({ error: 'Where should the test go?' });
+    const step = campaign.steps[Number(req.body?.stepIndex) || 0];
+    if (!step) return res.status(400).json({ error: 'No such step.' });
+
+    const sample = {
+      first_name: 'Anita', name: 'Dr. Anita Rao', designation: 'Training & Placement Officer',
+      department: 'CSE', college: 'Sample Institute of Technology', city: 'Hyderabad',
+      state: 'Telangana', email: to,
+    };
+    const body = fillPlaceholders(step.body, sample);
+    const fakeId = 'test000000000000000000000';
+    await sendOutreachMail({
+      to,
+      subject: `[TEST] ${fillPlaceholders(step.subject, sample)}`,
+      text: buildText(body, { contactId: fakeId, senderSignature: process.env.OUTREACH_SIGNATURE || '' }),
+      html: buildHtml(body, { contactId: fakeId, messageId: fakeId, senderSignature: process.env.OUTREACH_SIGNATURE || '' }),
+      fromName: campaign.fromName,
+      fromEmail: campaign.fromEmail,
+      replyTo: campaign.replyTo,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || 'Test send failed.' });
+  }
+});
+
+/* ── Ops ─────────────────────────────────────────────────────────────────── */
+
+/** Health: is mail configured, and is each campaign currently allowed to send? */
+router.get('/ops/status', requireAuth, async (_req, res) => {
+  const mail = await verifyMailer();
+  const campaigns = await Campaign.find({ status: 'active' }).lean();
+  res.json({
+    mail,
+    active: campaigns.map((c) => ({
+      id: c._id, name: c.name, sendingNow: withinSendWindow(c),
+      sentToday: c.sentTodayOn === new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10) ? c.sentToday : 0,
+      dailyCap: c.dailyCap,
+    })),
+  });
+});
+
+/** Force a scheduler tick (handy right after activating). */
+router.post('/ops/tick', requireAuth, async (_req, res) => {
+  res.json(await runTick());
+});
+
+/** Everything sent for a campaign — the audit trail. */
+router.get('/:id/messages', requireAuth, async (req, res) => {
+  const rows = await Message.find({ campaign: req.params.id })
+    .populate('contact', 'name email')
+    .sort('-sentAt').limit(200).lean();
+  res.json({ rows });
+});
+
+export default router;
