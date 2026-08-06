@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
 import Contacts from './pages/Contacts.jsx';
 import Campaigns from './pages/Campaigns.jsx';
+import Finder from './pages/Finder.jsx';
 import Ops from './pages/Ops.jsx';
 
 function Login({ onIn }) {
@@ -43,6 +44,7 @@ function Login({ onIn }) {
 
 const TABS = [
   { key: 'campaigns', label: 'Campaigns' },
+  { key: 'finder', label: 'Find contacts' },
   { key: 'contacts', label: 'Colleges & contacts' },
   { key: 'ops', label: 'Sending health' },
 ];
@@ -77,6 +79,7 @@ export default function App() {
       </nav>
       <div className="wrap">
         {tab === 'campaigns' && <Campaigns />}
+        {tab === 'finder' && <Finder />}
         {tab === 'contacts' && <Contacts />}
         {tab === 'ops' && <Ops />}
       </div>

@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import { COOKIE, cookieOptions, requireAuth, safeEqual, signSession } from './middleware/auth.js';
 import campaignRoutes from './routes/campaigns.js';
 import contactRoutes from './routes/contacts.js';
+import scraperRoutes from './routes/scraper.js';
 import trackingRoutes from './routes/tracking.js';
 import { startScheduler } from './utils/engine.js';
 
@@ -54,6 +55,7 @@ app.use('/track', trackingRoutes);
 /* Admin API */
 app.use('/api', contactRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/scrape', scraperRoutes);
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {

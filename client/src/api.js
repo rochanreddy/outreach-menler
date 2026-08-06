@@ -51,6 +51,17 @@ export const api = {
   testSend: (id, body) => request(`/api/campaigns/${id}/test`, { method: 'POST', body }),
   messages: (id) => request(`/api/campaigns/${id}/messages`),
 
+  // contact finder (scraper)
+  scrapeRun: (sites) => request('/api/scrape/run', { method: 'POST', body: { sites } }),
+  scrapeUpload: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request('/api/scrape/run', { method: 'POST', body: fd, isForm: true });
+  },
+  scrapeJobs: () => request('/api/scrape/jobs'),
+  scrapeJob: (id) => request(`/api/scrape/jobs/${id}`),
+  scrapeImport: (id, body) => request(`/api/scrape/jobs/${id}/import`, { method: 'POST', body }),
+
   // ops
   opsStatus: () => request('/api/campaigns/ops/status'),
   tick: () => request('/api/campaigns/ops/tick', { method: 'POST' }),
