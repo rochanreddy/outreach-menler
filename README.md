@@ -1,91 +1,184 @@
 # Menler Outreach
 
-B2I (business-to-institution) outbound: a contact database of colleges and their
-staff, plus sequenced email campaigns with pacing, tracking, and compliance.
+Find the right people at colleges, then email them — without doing either by hand.
 
-Same stack as the rest of Menler — Express + Mongoose backend, React + Vite admin
-UI, deployable to Render + Vercel.
+You collect contacts (placement officers, principals, HoDs), write one pitch,
+and the system personalises and paces the sending, chases non-repliers, and stops
+the moment someone answers.
 
-## Scope — read this first
+**The order you use it:** Find contacts → Colleges & contacts → Campaigns → Sending health.
 
-**This system is for institutional contacts only**: placement officers, HODs,
-deans, principals — people whose professional contact details their college
-publishes so they can be reached.
+---
 
-It is deliberately **not** built to collect or mail individual students. Students
-come in through the existing consented funnel (campaign pages → OTP-verified
-registration). Cold-mailing students would be a DPDP-Act problem and would burn
-the institutional relationships this system exists to build.
+## 1. Find contacts
 
-There is no LinkedIn scraping here either. `linkedinUrl` is a manual note field.
+**What it's for:** getting contacts without building spreadsheets by hand.
 
-## Layout
+Three ways in, top to bottom:
+
+### Browse the college directory
+An index of ~40,000 Indian colleges across 393 cities, built from Careers360's
+published sitemap. Pick a city, narrow by keyword, select, queue.
+
+> Hyderabad + "engineering" → 76 colleges → *Find contacts for 76 colleges*
+
+### Paste names or websites
+One per line, mixed freely. A name is looked up to find the official site first.
 
 ```
-server/    Express API + the sending engine
-  models/    Institution, Contact, Campaign, Enrollment, Message, Suppression
-  routes/    contacts (+import), campaigns, tracking (public)
-  utils/     engine (scheduler), mailer, render (personalisation), tokens
-client/    React admin UI — Campaigns, Colleges & contacts, Sending health
+BVRIT Narsapur
+Chaitanya Bharathi Institute of Technology
+cbit.ac.in
 ```
 
-All collections are prefixed `out_`, so this shares the existing Atlas cluster
-without colliding with the marketing (`leads`, `orders`) or LMS (`lms_*`) data.
+### Upload a CSV
+Columns: `college, website, city, state`.
 
-## Local setup
+**What happens next.** Each college's own website is crawled — placements page,
+contact page, administration, and department pages — for emails, phones, names
+and designations. Every address is scored:
 
+| Score | Meaning |
+|---|---|
+| 100+ | Placement cell / TPO — who you actually want |
+| 80 | Principal, dean, director |
+| 70 | HoD |
+| 20–30 | Generic `info@` / `admissions@` |
+
+Bonus points when a real name or spelled-out designation sits beside the address.
+Every address is MX-checked, so dead domains never reach a campaign.
+
+**Then click "Import the good ones"** — keeps everything scoring 60+ with a working
+mail domain, skips the junk. Nothing is emailable until you do this.
+
+**Realistic yield** (measured on live sites): ~75% of colleges give at least one
+usable contact. Placement/principal addresses are common. HoD addresses are
+published by roughly 1 college in 8 — but those publish a whole set at once
+(BVRIT alone gave 9). Individual student-counsellor emails are almost never public;
+you reach them through the placement officer.
+
+---
+
+## 2. Colleges & contacts
+
+**What it's for:** your address book and your sales pipeline in one place.
+
+Two views:
+
+- **Colleges** — every institution, with its contact count and a **status** you set:
+  `new → contacted → replied → meeting → won` (or `lost` / `unqualified`).
+  This is how you see which colleges are warm.
+- **Contacts** — every person, with their designation, email, and college.
+  Anyone unsubscribed or bounced is flagged here.
+
+You can also import a contact CSV directly on this screen if you already have a list.
+
+---
+
+## 3. Campaigns
+
+**What it's for:** writing the pitch once and letting it go out personalised, on a
+schedule, with follow-ups.
+
+### Setting one up
+1. **Create** — name it something you'll recognise: *"Hyderabad engineering — August"*.
+2. **Sender** — from-name, from-address (must be on the outreach domain), and a
+   reply-to that a human actually watches.
+3. **Pacing** — emails/day, the hours to send between, weekdays only.
+   *Start at 20–40/day on a new domain and raise it slowly.*
+4. **Sequence** — the first email, then follow-ups with a delay in days.
+
+### Writing the copy
+Use placeholders; they're filled per-recipient:
+
+```
+Subject: AI workshop for {{college}} students
+
+Hi {{first_name|there}},
+
+I lead AI education at Menler. We run hands-on Claude workshops for
+final-year students — {{college}} students would be a strong fit.
+
+Worth a 15-minute call?
+```
+
+Available: `{{first_name}}` `{{name}}` `{{college}}` `{{designation}}`
+`{{department}}` `{{city}}` `{{state}}`.
+Add a fallback with a pipe: `{{first_name|there}}`.
+
+An unsubscribe footer is appended automatically — you don't add it.
+
+### Going live
+1. **Send me a test** — always. It's the only way to catch a broken placeholder
+   before a dean sees it.
+2. **Enrol all sendable contacts** — pulls in your contacts, skipping anyone
+   unsubscribed, bounced or suppressed.
+3. **Activate.**
+
+From there it runs itself: sends within your window, spaces each email out,
+personalises every one. **Follow-ups fire automatically — unless the person
+replied, in which case the sequence stops for them.**
+
+When someone replies, open the campaign's enrolment list and mark them replied.
+That stops their follow-ups and moves the college to `replied` in the pipeline.
+
+---
+
+## 4. Sending health
+
+**What it's for:** deliverability. This is what decides whether you land in the
+inbox or the spam folder.
+
+- **Email transport** — is the sending provider connected and working.
+- **Active campaigns** — how many sent today against the cap, and whether each
+  campaign is currently inside its sending window.
+- **Run a send tick now** — force a send immediately instead of waiting for the
+  next minute's cycle. Useful right after activating.
+- **Do-not-contact list** — every unsubscribe and hard bounce lands here
+  automatically, and it's checked before *every single send*. It survives
+  re-imports, so someone removed stays removed. You can also add an address or a
+  whole domain by hand.
+
+---
+
+## Setup
+
+### Local
 ```bash
-# backend
-cd server && npm install
-cp .env.example .env      # fill MONGODB_URI, JWT_SECRET, OUTREACH_USERNAME/PASSWORD
-npm run dev               # :4200
-
-# frontend
-cd client && npm install
-cp .env.example .env      # VITE_API_URL=http://localhost:4200
-npm run dev               # :5175
+cd server && npm install && npm run dev     # API on :4200
+cd client && npm install && npm run dev     # UI on :5175
 ```
+Copy `server/.env.example` → `server/.env` and fill it in. Log in with
+`OUTREACH_USERNAME` / `OUTREACH_PASSWORD`.
 
-Without SMTP configured, emails are **logged to the console** instead of sent, so
-the whole flow can be exercised locally. In production, missing SMTP blocks
-activation outright.
+With no SMTP configured, **emails print to the server terminal instead of
+sending** — so you can build and test the whole flow safely.
 
-## How it works
+### Sending for real
+Cold outreach needs its own provider on its own domain — e.g.
+`outreach.menler.in` via Instantly, Smartlead or Amazon SES.
 
-1. **Import** a CSV of colleges + contacts. Colleges are upserted on name+city,
-   so several people at one college group under it. Duplicates and anyone on the
-   do-not-contact list are skipped.
-2. **Build a campaign**: a first email plus follow-ups, each with a delay in days.
-   Copy supports `{{first_name}}`, `{{college}}`, `{{designation}}`, `{{city}}`,
-   `{{state}}` … with fallbacks (`{{first_name|there}}`).
-3. **Enrol** contacts (all sendable, or filtered by state/city/designation).
-4. **Activate.** A scheduler tick runs every minute and sends whatever is due,
-   respecting the campaign's daily cap, IST sending window and weekday rule, with
-   randomised spacing between sends.
-5. **Replies stop the sequence.** Mark a reply in the UI (or wire the ESP
-   webhook) and every remaining follow-up for that contact is cancelled.
+**Never point this at the transactional provider that sends certificates and
+receipts.** A spam complaint there would take those down too.
 
-## Deliverability rules (not optional)
+Set `OUTREACH_SMTP_*`, `OUTREACH_FROM_EMAIL` and `OUTREACH_REPLY_TO`, then warm
+the domain up: 20/day for the first week or two, raising slowly.
 
-- **Use a dedicated outreach domain and provider** — e.g. `outreach.menler.in`
-  through Instantly / Smartlead / Amazon SES. **Never** route cold mail through
-  the transactional provider that sends certificates, receipts and LMS mail: one
-  spam complaint there and those stop landing in inboxes.
-- **Warm the domain up.** 20–40/day for the first weeks, then raise slowly. The
-  per-campaign `dailyCap` exists to enforce this.
-- **Set SPF, DKIM and DMARC** on the outreach domain before the first send.
-- Every email carries an unsubscribe link plus RFC 8058 one-click headers.
-  Unsubscribes and hard bounces are suppressed permanently and survive re-imports.
-- `OUTREACH_SIGNATURE` must include a real postal address.
+### Database
+Shares the existing Atlas cluster but only touches `out_*` collections, so it
+never collides with the marketing site's leads/orders or the LMS's `lms_*` data.
 
-## Deploying
+---
 
-**Render** (backend) — root `server`, build `npm install`, start `npm start`,
-env from `.env.example`. `API_PUBLIC_URL` must be the public Render URL, since
-unsubscribe/tracking links are built from it.
+## Where the data comes from
 
-**Vercel** (admin UI) — root `client`, env `VITE_API_URL` = the Render URL. Then
-set `OUTREACH_APP_URL` on Render to the Vercel URL so CORS allows the cookie.
+Contacts are read from **colleges' own public websites** — the pages they publish
+so people can contact them. The crawler identifies itself, obeys `robots.txt`,
+takes one site at a time with delays, and never touches login-walled pages.
 
-Run only **one** instance with the scheduler on (`OUTREACH_SCHEDULER=on`); any
-extra instances should set it to `off` so nothing double-sends.
+Careers360 is used **only as an index of which colleges exist**, via the XML
+sitemap they publish for crawlers. No contact data is taken from it.
+
+This is business-to-institution outreach. Personal data about students has no
+place in this system — students should come through the consented funnel on
+menler.in instead.
