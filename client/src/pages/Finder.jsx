@@ -24,7 +24,7 @@ function Directory({ onQueue, busy }) {
       qs.set('limit', '200');
       const d = await api.directory(`?${qs}`);
       setData(d);
-      setPicked(new Set(d.rows.map((r) => r.name)));   // pre-select everything
+      setPicked(new Set());   // start empty — you choose what to queue
     } finally {
       setLoading(false);
     }
@@ -59,11 +59,21 @@ function Directory({ onQueue, busy }) {
 
       {data && (
         <>
-          <p className="hint" style={{ marginTop: 12 }}>
-            <b>{data.total}</b> match{data.total === 1 ? '' : 'es'} (showing {data.rows.length}) ·
-            {' '}<b>{picked.size}</b> selected · index holds {data.indexSize.toLocaleString('en-IN')} colleges
-          </p>
-          <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
+          <div className="row" style={{ marginTop: 12, justifyContent: 'space-between' }}>
+            <span className="hint">
+              <b>{data.total}</b> match{data.total === 1 ? '' : 'es'} (showing {data.rows.length}) ·
+              {' '}<b>{picked.size}</b> selected · index holds {data.indexSize.toLocaleString('en-IN')} colleges
+            </span>
+            <span className="row" style={{ gap: 8 }}>
+              <button className="btn btn--ghost" onClick={() => setPicked(new Set(data.rows.map((r) => r.name)))}>
+                Select all {data.rows.length}
+              </button>
+              <button className="btn btn--ghost" disabled={!picked.size} onClick={() => setPicked(new Set())}>
+                Clear
+              </button>
+            </span>
+          </div>
+          <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto', marginTop: 10 }}>
             <table>
               <tbody>
                 {data.rows.map((r) => (
@@ -81,7 +91,9 @@ function Directory({ onQueue, busy }) {
           <div className="row" style={{ marginTop: 12 }}>
             <button className="btn" disabled={busy || !picked.size}
               onClick={() => onQueue([...picked].slice(0, 300))}>
-              Find contacts for {picked.size} college{picked.size === 1 ? '' : 's'}
+              {picked.size
+                ? `Find contacts for ${picked.size} college${picked.size === 1 ? '' : 's'}`
+                : 'Select colleges to continue'}
             </button>
             <span className="hint">
               Runs one college at a time — a few seconds each, so 50 colleges takes a few minutes.
