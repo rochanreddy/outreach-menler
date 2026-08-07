@@ -7,6 +7,7 @@ import { Institution } from '../models/Institution.js';
 import { ScrapeJob } from '../models/ScrapeJob.js';
 import { isSuppressed } from '../models/Suppression.js';
 import { requireAuth } from '../middleware/auth.js';
+import { directoryCities, searchDirectory } from '../utils/directory.js';
 import { findWebsite, hasMx, scrapeSite } from '../utils/scraper.js';
 import { dedupeKey } from './contacts.js';
 
@@ -108,6 +109,32 @@ router.post('/run', requireAuth, upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('scrape run', err);
     res.status(500).json({ error: 'Could not start the scrape.' });
+  }
+});
+
+/* ── College directory (Careers360 sitemap index) ────────────────────────── */
+
+router.get('/directory', requireAuth, async (req, res) => {
+  try {
+    const out = await searchDirectory({
+      q: String(req.query.q || ''),
+      city: String(req.query.city || ''),
+      limit: Math.min(Number(req.query.limit) || 100, 300),
+      offset: Number(req.query.offset) || 0,
+    });
+    res.json(out);
+  } catch (err) {
+    console.error('directory search', err);
+    res.status(500).json({ error: 'Could not load the college directory.' });
+  }
+});
+
+router.get('/directory/cities', requireAuth, async (_req, res) => {
+  try {
+    res.json({ rows: await directoryCities() });
+  } catch (err) {
+    console.error('directory cities', err);
+    res.status(500).json({ error: 'Could not load cities.' });
   }
 });
 

@@ -58,6 +58,8 @@ export const api = {
     fd.append('file', file);
     return request('/api/scrape/run', { method: 'POST', body: fd, isForm: true });
   },
+  directory: (q = '') => request(`/api/scrape/directory${q}`),
+  directoryCities: () => request('/api/scrape/directory/cities'),
   scrapeJobs: () => request('/api/scrape/jobs'),
   scrapeJob: (id) => request(`/api/scrape/jobs/${id}`),
   scrapeImport: (id, body) => request(`/api/scrape/jobs/${id}/import`, { method: 'POST', body }),

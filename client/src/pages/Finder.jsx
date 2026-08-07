@@ -1,6 +1,98 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 
+// Browse the national college index (built from Careers360's published
+// sitemap) and queue a whole city's colleges for contact discovery.
+function Directory({ onQueue, busy }) {
+  const [cities, setCities] = useState([]);
+  const [city, setCity] = useState('');
+  const [q, setQ] = useState('');
+  const [data, setData] = useState(null);
+  const [picked, setPicked] = useState(() => new Set());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.directoryCities().then((d) => setCities(d.rows || [])).catch(() => {});
+  }, []);
+
+  const search = async () => {
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (city) qs.set('city', city);
+      if (q.trim()) qs.set('q', q.trim());
+      qs.set('limit', '200');
+      const d = await api.directory(`?${qs}`);
+      setData(d);
+      setPicked(new Set(d.rows.map((r) => r.name)));   // pre-select everything
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggle = (name) => setPicked((prev) => {
+    const next = new Set(prev);
+    next.has(name) ? next.delete(name) : next.add(name);
+    return next;
+  });
+
+  return (
+    <div className="card">
+      <h2>Browse the college directory</h2>
+      <p className="hint" style={{ marginTop: 0 }}>
+        A national index of ~40,000 colleges, built from Careers360's published
+        sitemap. Pick a city, narrow by keyword, then queue them — each college's
+        own website is then found and crawled for real contacts.
+      </p>
+      <div className="row">
+        <select style={{ width: 220 }} value={city} onChange={(e) => setCity(e.target.value)}>
+          <option value="">All cities</option>
+          {cities.map((c) => <option key={c.city} value={c.city}>{c.city} ({c.count})</option>)}
+        </select>
+        <input className="grow" placeholder="Narrow by name — e.g. engineering, technology"
+          value={q} onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && search()} />
+        <button className="btn btn--ghost" onClick={search} disabled={loading}>
+          {loading ? 'Searching…' : 'Search'}
+        </button>
+      </div>
+
+      {data && (
+        <>
+          <p className="hint" style={{ marginTop: 12 }}>
+            <b>{data.total}</b> match{data.total === 1 ? '' : 'es'} (showing {data.rows.length}) ·
+            {' '}<b>{picked.size}</b> selected · index holds {data.indexSize.toLocaleString('en-IN')} colleges
+          </p>
+          <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
+            <table>
+              <tbody>
+                {data.rows.map((r) => (
+                  <tr key={r.name + r.city} onClick={() => toggle(r.name)} style={{ cursor: 'pointer' }}>
+                    <td style={{ width: 34 }}>
+                      <input type="checkbox" readOnly checked={picked.has(r.name)} style={{ width: 16 }} />
+                    </td>
+                    <td>{r.name}</td>
+                    <td className="muted">{r.city}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="row" style={{ marginTop: 12 }}>
+            <button className="btn" disabled={busy || !picked.size}
+              onClick={() => onQueue([...picked].slice(0, 300))}>
+              Find contacts for {picked.size} college{picked.size === 1 ? '' : 's'}
+            </button>
+            <span className="hint">
+              Runs one college at a time — a few seconds each, so 50 colleges takes a few minutes.
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Find contacts on college websites, review what came back, then approve the
 // good ones into the contact database. Nothing is emailable until it's approved.
 export default function Finder() {
@@ -57,6 +149,14 @@ export default function Finder() {
 
   return (
     <>
+      <Directory onQueue={async (names) => {
+        setBusy(true); setErr(''); setMsg('');
+        try {
+          const { id } = await api.scrapeRun(names);
+          setJob(await api.scrapeJob(id));
+          loadJobs();
+        } catch (e) { setErr(e.message); } finally { setBusy(false); }
+      }} busy={busy} />
       <div className="card">
         <h2>Find contacts</h2>
         <p className="hint" style={{ marginTop: 0 }}>
