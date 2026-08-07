@@ -7,7 +7,7 @@ import { Institution } from '../models/Institution.js';
 import { ScrapeJob } from '../models/ScrapeJob.js';
 import { isSuppressed } from '../models/Suppression.js';
 import { requireAuth } from '../middleware/auth.js';
-import { hasMx, scrapeSite } from '../utils/scraper.js';
+import { findWebsite, hasMx, scrapeSite } from '../utils/scraper.js';
 import { dedupeKey } from './contacts.js';
 
 const router = Router();
@@ -27,7 +27,19 @@ async function runJob(jobId) {
   for (let i = 0; i < job.results.length; i++) {
     const row = job.results[i];
     try {
-      const { contacts, pagesFetched, error } = await scrapeSite(row.website, { maxPages: 8 });
+      // Only a college name? Find its official site first.
+      if (!row.website && row.collegeName) {
+        row.website = await findWebsite(row.collegeName);
+        if (!row.website) {
+          row.status = 'failed';
+          row.error = 'Could not find a website for that name';
+          job.processed = i + 1;
+          job.markModified('results');
+          await job.save();
+          continue;
+        }
+      }
+      const { contacts, pagesFetched, error } = await scrapeSite(row.website, { maxPages: 16 });
       // Verify each address's domain actually accepts mail before we keep it.
       const checked = [];
       for (const c of contacts.slice(0, 12)) {
@@ -72,12 +84,18 @@ router.post('/run', requireAuth, upload.single('file'), async (req, res) => {
         state: r.state || '',
       }));
     } else if (Array.isArray(req.body?.sites)) {
+      // Each line is either a website or a college name — tell them apart so
+      // you can paste whichever list you happen to have.
+      const looksLikeSite = (s) => /^https?:\/\//i.test(s) || /^[\w-]+(\.[\w-]+)+$/.test(s.trim());
       rows = req.body.sites.map((s) => (typeof s === 'string'
-        ? { website: s, collegeName: '', city: '', state: '' }
+        ? (looksLikeSite(s)
+          ? { website: s.trim(), collegeName: '', city: '', state: '' }
+          : { website: '', collegeName: s.trim(), city: '', state: '' })
         : { website: s.website || '', collegeName: s.collegeName || '', city: s.city || '', state: s.state || '' }));
     }
 
-    rows = rows.filter((r) => r.website).slice(0, 300); // keep a run reviewable
+    // A website OR a college name is enough — the name is resolved to a site.
+    rows = rows.filter((r) => r.website || r.collegeName).slice(0, 300);
     if (!rows.length) return res.status(400).json({ error: 'Give me at least one website.' });
 
     const job = await ScrapeJob.create({

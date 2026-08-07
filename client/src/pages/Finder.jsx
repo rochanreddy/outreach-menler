@@ -60,15 +60,16 @@ export default function Finder() {
       <div className="card">
         <h2>Find contacts</h2>
         <p className="hint" style={{ marginTop: 0 }}>
-          Paste college websites (one per line), or upload a CSV with{' '}
-          <code>college, website, city, state</code>. Each site is crawled for its
-          placement-cell, principal and HOD contacts — public pages only, one at a
-          time, respecting robots.txt.
+          Paste <b>college names or websites</b> — one per line, mix them freely. A
+          name is looked up to find the official site first. Each site is then
+          crawled for placement-cell, principal, dean and HOD contacts, including
+          department pages. Public pages only, one site at a time, robots.txt
+          respected. Or upload a CSV with <code>college, website, city, state</code>.
         </p>
         <textarea
           value={sites}
           onChange={(e) => setSites(e.target.value)}
-          placeholder={'cbit.ac.in\ngriet.ac.in\nkmit.in'}
+          placeholder={'BVRIT Narsapur\nChaitanya Bharathi Institute of Technology\ncbit.ac.in'}
           style={{ minHeight: 110 }}
         />
         <div className="row" style={{ marginTop: 10 }}>

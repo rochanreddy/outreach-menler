@@ -8,7 +8,7 @@ import dns from 'node:dns/promises';
 
 const UA = 'MenlerBot/1.0 (+https://menler.in; outreach contact discovery)';
 const PAGE_TIMEOUT_MS = 12000;
-const MAX_PAGES = 8;
+const MAX_PAGES = 16;
 
 /* ── fetching ──────────────────────────────────────────────────────────── */
 
@@ -157,24 +157,68 @@ export async function hasMx(email) {
   return ok;
 }
 
+/* ── finding a college's website from its name ─────────────────────────── */
+
+// Aggregator/social results to ignore — we want the college's own site.
+const NOT_OFFICIAL = /(careers360|shiksha|collegedunia|collegesearch|getmyuni|wikipedia|facebook|youtube|linkedin|twitter|instagram|justdial|indiamart|quora|targetstudy)/i;
+
+/**
+ * Look up a college's official website from its name, so a plain list of
+ * college names is enough to start — no hunting for URLs by hand.
+ * Uses DuckDuckGo's HTML endpoint (no API key, no JS needed).
+ */
+export async function findWebsite(collegeName) {
+  const name = String(collegeName || '').trim();
+  if (!name) return '';
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`${name} official website`)}`;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const res = await fetch(url, {
+      signal: ctl.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    });
+    if (!res.ok) return '';
+    const html = await res.text();
+    const hits = [...html.matchAll(/uddg=([^&"]+)/g)].map((m) => {
+      try { return decodeURIComponent(m[1]); } catch { return ''; }
+    });
+    // Prefer .ac.in / .edu.in — that's what Indian colleges use.
+    const official = hits.filter((h) => h && !NOT_OFFICIAL.test(h));
+    const preferred = official.find((h) => /\.(ac\.in|edu\.in|edu)\b/i.test(h));
+    const pick = preferred || official[0] || '';
+    if (!pick) return '';
+    try { return new URL(pick).origin; } catch { return ''; }
+  } catch {
+    return '';
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ── crawling ──────────────────────────────────────────────────────────── */
 
-// Pages worth trying directly — where placement contacts usually live.
+// Pages worth trying directly — where contacts usually live.
 const SEED_PATHS = [
   '', '/placements', '/placement', '/training-and-placement', '/training-placement',
   '/tpo', '/contact', '/contact-us', '/placement-cell', '/career', '/administration',
+  '/departments', '/department', '/faculty', '/academics', '/staff',
 ];
 
-// Links whose text/href suggest a contact-bearing page.
-const LINK_HINT = /(placement|tpo|training|contact|reach|administration|faculty|dean|principal|career)/i;
+// Links whose text/href suggest a contact-bearing page. Department and faculty
+// pages matter because that's where HoD addresses (hod.cse@…) are listed —
+// only some colleges publish them, but the ones that do publish a whole set.
+const LINK_HINT = /(placement|tpo|training|contact|reach|administration|faculty|staff|dean|principal|career|department|dept|hod)/i;
+// Second-level: from a departments index, follow the individual departments.
+const DEPT_HINT = /(cse|computer|ece|electronic|eee|electrical|mech|civil|\bit\b|information|mba|management|ai|data|hod|head)/i;
 
 /** Collect same-host links from a page that look worth following. */
-function candidateLinks(html, origin) {
+function candidateLinks(html, origin, hint = LINK_HINT) {
   const out = new Set();
   for (const m of html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,80}?)<\/a>/gi)) {
     const href = m[1];
     const label = toText(m[2] || '');
-    if (!LINK_HINT.test(href) && !LINK_HINT.test(label)) continue;
+    if (!hint.test(href) && !hint.test(label)) continue;
     try {
       const url = new URL(href, origin);
       if (url.origin !== origin) continue;
@@ -207,7 +251,7 @@ export async function scrapeSite(website, { maxPages = MAX_PAGES, politeMs = 700
   const seen = new Set();
   const byEmail = new Map();
   let pagesFetched = 0;
-  let discovered = false;
+  let discovered = 0;
 
   while (queue.length && pagesFetched < maxPages) {
     const url = queue.shift();
@@ -228,10 +272,16 @@ export async function scrapeSite(website, { maxPages = MAX_PAGES, politeMs = 700
       if (!existing || c.score > existing.score) byEmail.set(c.email, c);
     }
 
-    // After the homepage, follow a few promising links.
-    if (!discovered) {
-      discovered = true;
-      for (const link of candidateLinks(html, origin).slice(0, 6)) {
+    // Two levels of discovery. From the first pages, follow anything that looks
+    // contact-bearing; from a departments index, follow the individual
+    // department pages — that's where hod.cse@… style addresses live.
+    if (discovered < 2) {
+      discovered += 1;
+      for (const link of candidateLinks(html, origin).slice(0, 8)) {
+        if (!seen.has(link)) queue.push(link);
+      }
+    } else if (/(department|faculty|academics|administration)/i.test(path)) {
+      for (const link of candidateLinks(html, origin, DEPT_HINT).slice(0, 6)) {
         if (!seen.has(link)) queue.push(link);
       }
     }
