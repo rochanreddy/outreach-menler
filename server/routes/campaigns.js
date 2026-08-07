@@ -68,6 +68,13 @@ router.post('/:id/status', requireAuth, async (req, res) => {
 
   if (status === 'active') {
     if (!campaign.steps.length) return res.status(400).json({ error: 'Add at least one step first.' });
+    // Empty copy is fine while drafting, but must never go out.
+    const blank = campaign.steps.findIndex((s) => !s.subject?.trim() || !s.body?.trim());
+    if (blank !== -1) {
+      return res.status(400).json({
+        error: `Step ${blank + 1} still needs a subject and a body.`,
+      });
+    }
     if (!campaign.fromEmail) return res.status(400).json({ error: 'Set a from-address first.' });
     const mail = await verifyMailer();
     if (!mail.ok) return res.status(400).json({ error: `Email is not ready: ${mail.error}` });

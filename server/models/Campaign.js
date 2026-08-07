@@ -5,8 +5,11 @@ import mongoose from 'mongoose';
 // if the contact has replied (that's the whole point of a follow-up).
 const stepSchema = new mongoose.Schema(
   {
-    subject: { type: String, required: true },
-    body: { type: String, required: true },     // plain text w/ {{placeholders}}
+    // Not required: a draft starts with an empty step you fill in. Both are
+    // checked for real when the campaign is activated, which is the point where
+    // an empty subject would actually matter.
+    subject: { type: String, default: '' },
+    body: { type: String, default: '' },     // plain text w/ {{placeholders}}
     delayDays: { type: Number, default: 3, min: 0, max: 60 },
     // Follow-ups usually thread under the first email (better reply rates).
     threaded: { type: Boolean, default: true },
