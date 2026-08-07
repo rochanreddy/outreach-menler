@@ -136,14 +136,49 @@ router.post('/:id/enroll', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Who's in this campaign and what happened to them — the view you actually
+ * work from. Each row carries its send/open history so you can see at a glance
+ * who read it and never replied (the people worth a nudge).
+ */
 router.get('/:id/enrollments', requireAuth, async (req, res) => {
   const filter = { campaign: req.params.id };
   if (req.query.status) filter.status = req.query.status;
   const rows = await Enrollment.find(filter)
     .populate('contact', 'name email designation')
     .populate('institution', 'name city state')
-    .sort('-updatedAt').limit(200).lean();
-  res.json({ rows });
+    .sort('-updatedAt').limit(300).lean();
+
+  // Fold each enrolment's messages into a small summary.
+  const ids = rows.map((r) => r._id);
+  const stats = await Message.aggregate([
+    { $match: { enrollment: { $in: ids } } },
+    {
+      $group: {
+        _id: '$enrollment',
+        sent: { $sum: { $cond: [{ $eq: ['$status', 'sent'] }, 1, 0] } },
+        opens: { $sum: '$openCount' },
+        clicks: { $sum: '$clickCount' },
+        firstOpenedAt: { $min: '$openedAt' },
+        lastSentAt: { $max: '$sentAt' },
+      },
+    },
+  ]);
+  const byEnrollment = new Map(stats.map((s) => [String(s._id), s]));
+
+  res.json({
+    rows: rows.map((r) => {
+      const s = byEnrollment.get(String(r._id)) || {};
+      return {
+        ...r,
+        sentCount: s.sent || 0,
+        openCount: s.opens || 0,
+        clickCount: s.clicks || 0,
+        openedAt: s.firstOpenedAt || null,
+        lastSentAt: s.lastSentAt || r.lastSentAt,
+      };
+    }),
+  });
 });
 
 /* Mark a reply — stops every follow-up for that contact instantly. */
