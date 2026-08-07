@@ -135,6 +135,108 @@ function Recipients({ id, onChange }) {
   );
 }
 
+/**
+ * Choose who this campaign emails. Defaults to nobody until you preview —
+ * "enrol everyone" should be a decision, not the path of least resistance.
+ */
+function Enroller({ id, onDone }) {
+  const [f, setF] = useState({ role: '', city: '', state: '', limit: 200 });
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+
+  const set = (k, v) => { setF((p) => ({ ...p, [k]: v })); setPreview(null); setMsg(''); };
+
+  const check = async () => {
+    setBusy(true); setErr(''); setMsg('');
+    try { setPreview(await api.enroll(id, { ...f, dryRun: true })); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+
+  const commit = async () => {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const r = await api.enroll(id, f);
+      setMsg(`Enrolled ${r.enrolled}${r.skipped ? `, skipped ${r.skipped}` : ''}.`);
+      setPreview(null);
+      onDone?.();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card">
+      <h2>Who gets this campaign</h2>
+      <p className="hint" style={{ marginTop: 0 }}>
+        Leave a box empty to ignore it. People who unsubscribed, bounced, or are on
+        the do-not-contact list are always excluded — and nobody is enrolled twice.
+      </p>
+      <div className="row">
+        <label className="field grow"><span>Role — matches designation or address</span>
+          <input value={f.role} onChange={(e) => set('role', e.target.value)}
+            placeholder="placement · principal · hod" />
+        </label>
+        <label className="field grow"><span>City</span>
+          <input value={f.city} onChange={(e) => set('city', e.target.value)} placeholder="Hyderabad" />
+        </label>
+        <label className="field grow"><span>State</span>
+          <input value={f.state} onChange={(e) => set('state', e.target.value)} placeholder="Telangana" />
+        </label>
+        <label className="field" style={{ width: 110 }}><span>Max</span>
+          <input type="number" min="1" max="500" value={f.limit}
+            onChange={(e) => set('limit', Number(e.target.value))} />
+        </label>
+      </div>
+
+      <div className="row">
+        <button className="btn btn--ghost" onClick={check} disabled={busy}>
+          {busy ? 'Checking…' : 'Preview who matches'}
+        </button>
+        {preview && (
+          <button className="btn" onClick={commit} disabled={busy || !preview.wouldEnroll}>
+            {preview.wouldEnroll
+              ? `Enrol ${preview.wouldEnroll} contact${preview.wouldEnroll === 1 ? '' : 's'}`
+              : 'Nothing new to enrol'}
+          </button>
+        )}
+      </div>
+
+      {preview && (
+        <div style={{ marginTop: 12 }}>
+          <p className="hint">
+            <b>{preview.matched}</b> match{preview.matched === 1 ? '' : 'es'}
+            {preview.alreadyEnrolled ? ` · ${preview.alreadyEnrolled} already in this campaign` : ''}
+            {' '}· <b>{preview.wouldEnroll}</b> would be added
+          </p>
+          {preview.sample?.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Email</th><th>Designation</th></tr></thead>
+                <tbody>
+                  {preview.sample.map((s) => (
+                    <tr key={s.email}>
+                      <td>{s.email}</td>
+                      <td className="muted">{s.designation || '—'}</td>
+                    </tr>
+                  ))}
+                  {preview.matched > preview.sample.length && (
+                    <tr><td colSpan={2} className="muted">
+                      …and {preview.matched - preview.sample.length} more
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {err && <p className="err">{err}</p>}
+      {msg && <p className="ok">{msg}</p>}
+    </div>
+  );
+}
+
 function Editor({ id, onBack }) {
   const [c, setC] = useState(null);
   const [err, setErr] = useState('');
@@ -255,7 +357,7 @@ function Editor({ id, onBack }) {
       </div>
 
       <div className="card">
-        <h2>Test &amp; enrol</h2>
+        <h2>Send a test</h2>
         <div className="row">
           <input className="grow" placeholder="your@email.com" value={testTo}
             onChange={(e) => setTestTo(e.target.value)} />
@@ -263,16 +365,11 @@ function Editor({ id, onBack }) {
             onClick={() => act(() => api.testSend(id, { to: testTo, stepIndex: 0 }), 'Test sent — check your inbox and spam.')}>
             Send me a test
           </button>
-          <button className="btn" disabled={busy}
-            onClick={() => act(async () => {
-              const r = await api.enroll(id, { limit: 500 });
-              return `Enrolled ${r.enrolled}, skipped ${r.skipped}.`;
-            }, 'Enrolled.')}>
-            Enrol contacts
-          </button>
         </div>
         <p className="hint">Always test before activating — it's the only way to catch a broken placeholder before a dean sees it.</p>
       </div>
+
+      <Enroller id={id} onDone={load} />
 
       {/* Set once, then out of the way. */}
       <details className="card">

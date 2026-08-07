@@ -13,6 +13,9 @@ import { buildHtml, buildText, contactVars, fillPlaceholders } from '../utils/re
 
 const router = Router();
 
+/** Escape user input before it becomes a regex. */
+const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /* ── CRUD ────────────────────────────────────────────────────────────────── */
 
 router.get('/', requireAuth, async (_req, res) => {
@@ -99,8 +102,8 @@ router.post('/:id/enroll', requireAuth, async (req, res) => {
       contacts = await Contact.find({ _id: { $in: b.contactIds } });
     } else {
       const instFilter = {};
-      if (b.state) instFilter.state = b.state;
-      if (b.city) instFilter.city = b.city;
+      if (b.state) instFilter.state = new RegExp(esc(b.state), 'i');
+      if (b.city) instFilter.city = new RegExp(esc(b.city), 'i');
       if (b.status) instFilter.status = b.status;
       const instIds = Object.keys(instFilter).length
         ? (await Institution.find(instFilter).select('_id').lean()).map((i) => i._id)
@@ -108,8 +111,28 @@ router.post('/:id/enroll', requireAuth, async (req, res) => {
 
       const filter = { unsubscribed: false, bounced: false };
       if (instIds) filter.institution = { $in: instIds };
-      if (b.designation) filter.designation = new RegExp(b.designation, 'i');
+      // Match the role either in the designation text or in the address itself,
+      // so "placement" catches both "Training & Placement Officer" and
+      // placements@college.edu.
+      if (b.role) {
+        const rx = new RegExp(esc(b.role), 'i');
+        filter.$or = [{ designation: rx }, { email: rx }];
+      }
       contacts = await Contact.find(filter).limit(Number(b.limit) || 500);
+    }
+
+    // Count-only mode, so you can see who'd be included before committing.
+    if (b.dryRun) {
+      const already = await Enrollment.countDocuments({
+        campaign: campaign._id,
+        contact: { $in: contacts.map((c) => c._id) },
+      });
+      return res.json({
+        matched: contacts.length,
+        alreadyEnrolled: already,
+        wouldEnroll: Math.max(0, contacts.length - already),
+        sample: contacts.slice(0, 8).map((c) => ({ email: c.email, designation: c.designation })),
+      });
     }
 
     const out = { enrolled: 0, skipped: 0 };
