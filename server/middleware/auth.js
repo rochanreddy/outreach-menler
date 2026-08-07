@@ -15,13 +15,21 @@ export function safeEqual(a, b) {
 
 export const signSession = () => jwt.sign({ role: 'admin' }, SECRET(), { expiresIn: '7d' });
 
-export const cookieOptions = () => ({
-  httpOnly: true,
-  sameSite: 'none',
-  secure: process.env.NODE_ENV === 'production',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: '/',
-});
+export const cookieOptions = () => {
+  // In production the UI and API sit on different domains, so the cookie must be
+  // SameSite=None — which browsers only accept when it's also Secure. Over plain
+  // HTTP in local dev that combination is rejected outright (the cookie silently
+  // never gets stored), so dev uses Lax: localhost:5175 → localhost:4200 counts
+  // as same-site, since ports don't affect SameSite.
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    sameSite: isProd ? 'none' : 'lax',
+    secure: isProd,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  };
+};
 
 export function requireAuth(req, res, next) {
   const token = req.cookies?.[COOKIE];

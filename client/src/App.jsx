@@ -17,9 +17,14 @@ function Login({ onIn }) {
     setBusy(true);
     try {
       await api.login(u, p);
+      // Confirm the session cookie actually stuck. Without this a rejected
+      // cookie still shows the app, and every action then fails with 401.
+      await api.session();
       onIn();
     } catch (e2) {
-      setErr(e2.message);
+      setErr(e2.status === 401 && !e2.fromLogin
+        ? 'Signed in, but the browser did not keep the session cookie. Check the API URL and that cookies are allowed.'
+        : e2.message);
     } finally {
       setBusy(false);
     }

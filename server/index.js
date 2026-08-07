@@ -44,7 +44,7 @@ app.post('/auth/login', (req, res) => {
   res.json({ ok: true });
 });
 app.post('/auth/logout', (_req, res) => {
-  res.clearCookie(COOKIE, { path: '/' });
+  res.clearCookie(COOKIE, cookieOptions());
   res.json({ ok: true });
 });
 app.get('/auth/session', requireAuth, (_req, res) => res.json({ authenticated: true }));
