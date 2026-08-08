@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router } from 'express';
 
 import { Campaign } from '../models/Campaign.js';
@@ -298,6 +299,33 @@ router.get('/ops/status', requireAuth, async (_req, res) => {
 /** Force a scheduler tick (handy right after activating). */
 router.post('/ops/tick', requireAuth, async (_req, res) => {
   res.json(await runTick());
+});
+
+/**
+ * Tick via a secret URL, for an external scheduler (cron-job.org, GitHub
+ * Actions, Render Cron…). On a free host the service sleeps when idle, which
+ * would stop the in-process scheduler and silently halt a campaign — pinging
+ * this both wakes the service and sends whatever is due.
+ *
+ * GET so any cron service can call it. Guarded by OUTREACH_CRON_TOKEN, and
+ * disabled entirely when that isn't set.
+ */
+router.get('/ops/cron/:token', async (req, res) => {
+  const expected = process.env.OUTREACH_CRON_TOKEN;
+  if (!expected) return res.status(404).json({ error: 'Cron trigger is not enabled.' });
+  const given = String(req.params.token || '');
+  // Constant-time compare so the token can't be guessed by timing.
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Bad token.' });
+  }
+  try {
+    res.json({ ok: true, ...(await runTick()) });
+  } catch (err) {
+    console.error('cron tick failed', err.message);
+    res.status(500).json({ error: 'Tick failed.' });
+  }
 });
 
 /** Everything sent for a campaign — the audit trail. */
