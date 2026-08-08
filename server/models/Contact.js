@@ -35,9 +35,14 @@ const contactSchema = new mongoose.Schema(
 
 contactSchema.pre('save', function setFirstName(next) {
   if (this.name && !this.firstName) {
-    // "Dr. Anita Rao" → "Anita" (drop common honorifics)
+    // "Dr. Anita Rao" → "Anita". Initials are skipped, because plenty of Indian
+    // academic names are written "Dr. N. L. N. Reddy" and greeting someone
+    // "Hi N.," is worse than not using their name at all — so we take the first
+    // real word ("Reddy"), and leave it blank if there isn't one, letting
+    // {{first_name|there}} fall back gracefully.
     const cleaned = this.name.replace(/^(dr|prof|mr|mrs|ms|shri|smt)\.?\s+/i, '').trim();
-    this.firstName = cleaned.split(/\s+/)[0] || '';
+    const word = cleaned.split(/\s+/).find((t) => /^[A-Za-z]{2,}$/.test(t.replace(/\.$/, '')));
+    this.firstName = word ? word.replace(/\.$/, '') : '';
   }
   next();
 });

@@ -40,7 +40,8 @@ async function runJob(jobId) {
           continue;
         }
       }
-      const { contacts, pagesFetched, error } = await scrapeSite(row.website, { maxPages: 16 });
+      const { contacts, pagesFetched, error, siteTitle } = await scrapeSite(row.website, { maxPages: 16 });
+      if (siteTitle) row.siteTitle = siteTitle;
       // Verify each address's domain actually accepts mail before we keep it.
       const checked = [];
       for (const c of contacts.slice(0, 12)) {
@@ -166,7 +167,13 @@ router.post('/jobs/:id/import', requireAuth, async (req, res) => {
       const wanted = row.contacts.filter((c) => (only ? only.has(c.email) : c.score >= minScore && c.hasMx));
       if (!wanted.length) continue;
 
-      const name = row.collegeName || row.website.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      // Prefer a real name — what you typed, else the name read off the site's
+      // own <title>, else a tidied domain. Never a raw URL: "{{college}}
+      // students" reading "cbit.ac.in/ students" is the kind of detail that
+      // makes an otherwise good email look automated.
+      const name = row.collegeName
+        || row.siteTitle
+        || row.website.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
       const key = dedupeKey(name, row.city);
       let inst = await Institution.findOne({ dedupeKey: key });
       if (!inst) {

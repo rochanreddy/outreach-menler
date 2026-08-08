@@ -7,6 +7,7 @@ const resultSchema = new mongoose.Schema(
   {
     website: String,
     collegeName: String,
+    siteTitle: String,   // readable name read off the homepage <title>
     city: String,
     state: String,
     status: { type: String, default: 'pending' }, // pending | done | failed | blocked

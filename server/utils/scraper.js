@@ -196,6 +196,27 @@ export async function findWebsite(collegeName) {
   }
 }
 
+/**
+ * A readable college name from the homepage <title>. Titles are usually
+ * "CBIT | Chaitanya Bharathi Institute of Technology, Hyderabad" or
+ * "Best Engineering College in Hyderabad | KMIT" — so split on the separators
+ * and keep the segment that actually looks like an institution's name, rather
+ * than falling back to a bare domain in "{{college}} students".
+ */
+export function nameFromTitle(html) {
+  const raw = (html.match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i) || [])[1] || '';
+  const title = toText(raw).replace(/&[a-z]+;/gi, ' ').trim();
+  if (!title) return '';
+  const segments = title.split(/\s*[|·—–]\s*|\s+-\s+/).map((s) => s.trim()).filter(Boolean);
+  const INSTITUTION = /(institute|college|university|school|academy|polytechnic|vidyalaya|vidhyalaya)/i;
+  const MARKETING = /^(best|top|welcome|home|official|no\.?\s*1)\b/i;
+  const named = segments.filter((s) => INSTITUTION.test(s) && !MARKETING.test(s));
+  // Prefer the longest institution-looking segment — that's the full name
+  // rather than an acronym.
+  const pick = named.sort((a, b) => b.length - a.length)[0] || '';
+  return pick.length > 4 && pick.length < 120 ? pick : '';
+}
+
 /* ── crawling ──────────────────────────────────────────────────────────── */
 
 // Pages worth trying directly — where contacts usually live.
@@ -252,6 +273,7 @@ export async function scrapeSite(website, { maxPages = MAX_PAGES, politeMs = 700
   const byEmail = new Map();
   let pagesFetched = 0;
   let discovered = 0;
+  let siteTitle = '';
 
   while (queue.length && pagesFetched < maxPages) {
     const url = queue.shift();
@@ -265,6 +287,7 @@ export async function scrapeSite(website, { maxPages = MAX_PAGES, politeMs = 700
     const html = await fetchText(url);
     if (!html) continue;
     pagesFetched += 1;
+    if (!siteTitle) siteTitle = nameFromTitle(html);
 
     for (const c of extractFromHtml(html, { sourceUrl: url })) {
       const existing = byEmail.get(c.email);
@@ -297,5 +320,5 @@ export async function scrapeSite(website, { maxPages = MAX_PAGES, politeMs = 700
   for (const c of contacts) if (c.onDomain) c.score += 20;
 
   contacts.sort((a, b) => b.score - a.score);
-  return { origin, pagesFetched, contacts };
+  return { origin, pagesFetched, contacts, siteTitle };
 }
