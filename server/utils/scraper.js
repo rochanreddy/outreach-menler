@@ -100,12 +100,63 @@ function classify(email) {
 }
 
 /**
+ * Contacts declared in schema.org JSON-LD.
+ *
+ * Sites publish their official email/phone here for search engines, and on a
+ * JavaScript-rendered site it's often the ONLY contact detail present in the
+ * HTML at all — the visible page is assembled in the browser. It sits inside a
+ * <script> tag, which the text extractor strips, so it has to be read first.
+ */
+export function extractFromJsonLd(html, { sourceUrl = '' } = {}) {
+  const out = [];
+  let orgName = '';
+  const blocks = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+
+    const email = typeof node.email === 'string' ? node.email.replace(/^mailto:/i, '').trim().toLowerCase() : '';
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      const phone = typeof node.telephone === 'string' ? node.telephone : '';
+      const { role, score } = classify(email);
+      out.push({
+        email,
+        name: '',
+        designation: role,
+        role,
+        // Structured data is authoritative — the site itself is telling us.
+        score: score + 20,
+        phone: phone.replace(/[^\d+]/g, ''),
+        sourceUrl,
+      });
+    }
+    if (!orgName && typeof node.name === 'string'
+      && /(institute|college|university|school|academy)/i.test(node.name)) {
+      orgName = node.name.trim();
+    }
+    for (const v of Object.values(node)) if (v && typeof v === 'object') visit(v);
+  };
+
+  for (const b of blocks) {
+    try { visit(JSON.parse(b[1].trim())); } catch { /* malformed block — skip */ }
+  }
+  return { contacts: out, orgName };
+}
+
+/**
  * Pull contacts out of one page's HTML. Looks at the text around each address
  * for a name and designation so the row is usable, not just an address.
  */
 export function extractFromHtml(html, { sourceUrl = '' } = {}) {
   const text = toText(deobfuscate(html));
   const found = new Map();
+
+  // Structured data first — it's the most reliable, and the only source on a
+  // JS-rendered page.
+  for (const c of extractFromJsonLd(html, { sourceUrl }).contacts) {
+    found.set(c.email, c);
+  }
 
   for (const match of text.matchAll(RE_EMAIL)) {
     const email = match[0].toLowerCase();
@@ -287,7 +338,9 @@ export async function scrapeSite(website, { maxPages = MAX_PAGES, politeMs = 700
     const html = await fetchText(url);
     if (!html) continue;
     pagesFetched += 1;
-    if (!siteTitle) siteTitle = nameFromTitle(html);
+    // Prefer the organisation name the site declares in structured data —
+    // it is the college's own wording, not a marketing page title.
+    if (!siteTitle) siteTitle = extractFromJsonLd(html).orgName || nameFromTitle(html);
 
     for (const c of extractFromHtml(html, { sourceUrl: url })) {
       const existing = byEmail.get(c.email);

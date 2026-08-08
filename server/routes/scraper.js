@@ -27,6 +27,11 @@ async function runJob(jobId) {
 
   for (let i = 0; i < job.results.length; i++) {
     const row = job.results[i];
+    // Already handled (a resumed job picks up where a restart cut it off).
+    if (row.status !== 'pending') {
+      job.processed = Math.max(job.processed, i + 1);
+      continue;
+    }
     try {
       // Only a college name? Find its official site first.
       if (!row.website && row.collegeName) {
@@ -65,6 +70,33 @@ async function runJob(jobId) {
   job.finishedAt = new Date();
   await job.save();
 }
+
+/**
+ * Pick up jobs a restart cut off. Jobs run in-process, so a deploy or crash
+ * leaves them stranded mid-list: status 'running' forever, rows still pending,
+ * and the UI stuck on "waiting…" with nothing to explain it. Called on boot.
+ */
+export async function resumeStuckJobs() {
+  const stuck = await ScrapeJob.find({ status: { $in: ['queued', 'running'] } }).select('_id total processed');
+  for (const job of stuck) {
+    console.log(`[scrape] resuming job ${job._id} (${job.processed}/${job.total})`);
+    runJob(job._id).catch((err) => console.error('resume failed', err.message));
+  }
+  return stuck.length;
+}
+
+/** Manually restart a job that stalled. */
+router.post('/jobs/:id/resume', requireAuth, async (req, res) => {
+  const job = await ScrapeJob.findById(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Not found.' });
+  if (job.status === 'running') {
+    // Reset so runJob is willing to take it again.
+    job.status = 'queued';
+    await job.save();
+  }
+  runJob(job._id).catch((err) => console.error('resume failed', err.message));
+  res.json({ ok: true });
+});
 
 /* Start a scrape. Accepts a JSON list of sites, or a CSV upload with
  * college,website[,city,state] columns. */

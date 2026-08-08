@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 import { COOKIE, cookieOptions, requireAuth, safeEqual, signSession } from './middleware/auth.js';
 import campaignRoutes from './routes/campaigns.js';
 import contactRoutes from './routes/contacts.js';
-import scraperRoutes from './routes/scraper.js';
+import scraperRoutes, { resumeStuckJobs } from './routes/scraper.js';
 import trackingRoutes from './routes/tracking.js';
 import { startScheduler } from './utils/engine.js';
 
@@ -74,6 +74,10 @@ mongoose.connect(uri)
       } else {
         console.log('Scheduler disabled (OUTREACH_SCHEDULER=off).');
       }
+      // Jobs run in-process, so a restart strands them mid-list — pick them up.
+      resumeStuckJobs()
+        .then((n) => n && console.log(`Resumed ${n} interrupted scrape job(s).`))
+        .catch((e) => console.error('resume failed', e.message));
     });
   })
   .catch((err) => {
