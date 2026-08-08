@@ -136,6 +136,61 @@ function Recipients({ id, onChange }) {
 }
 
 /**
+ * A campaign only goes live after four things, in order. Without this the page
+ * is a wall of panels with no indication of which one you're supposed to touch.
+ */
+function NextSteps({ c, enrolled, testedAt }) {
+  const written = c.steps?.length > 0 && c.steps.every((s) => s.subject?.trim() && s.body?.trim());
+  const chosen = enrolled > 0;
+  const live = c.status === 'active';
+
+  const steps = [
+    { done: written, label: 'Write your email', hint: 'Subject and body, in the Sequence box below.' },
+    { done: chosen, label: 'Choose who gets it', hint: 'In "Who gets this campaign" — pick a role, preview, enrol.' },
+    { done: Boolean(testedAt), label: 'Send yourself a test', hint: 'Check it reads right before a stranger sees it.' },
+    { done: live, label: 'Activate', hint: 'Then it sends on its own, within your daily cap.' },
+  ];
+  const next = steps.findIndex((s) => !s.done);
+
+  if (live && next === -1) {
+    return (
+      <div className="card" style={{ borderLeft: '4px solid var(--placed)' }}>
+        <b>This campaign is live.</b>{' '}
+        <span className="muted">
+          Sending {c.dailyCap}/day between {c.sendWindowStart}:00 and {c.sendWindowEnd}:00 IST.
+          Check back here for replies.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ borderLeft: '4px solid var(--specialist)' }}>
+      <h2 style={{ marginBottom: 12 }}>What to do next</h2>
+      <ol style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+        {steps.map((s, i) => (
+          <li key={s.label} style={{
+            display: 'flex', gap: 10, alignItems: 'flex-start', padding: '7px 0',
+            opacity: s.done ? 0.5 : i === next ? 1 : 0.65,
+          }}>
+            <span style={{
+              width: 22, height: 22, borderRadius: '50%', flexShrink: 0, fontSize: 12,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
+              background: s.done ? 'var(--placed)' : i === next ? 'var(--specialist)' : 'var(--cloud)',
+              color: s.done || i === next ? '#fff' : 'var(--muted)',
+            }}>{s.done ? '✓' : i + 1}</span>
+            <span>
+              <b style={{ textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</b>
+              {i === next && <><br /><span className="hint">{s.hint}</span></>}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/**
  * Choose who this campaign emails. Defaults to nobody until you preview —
  * "enrol everyone" should be a decision, not the path of least resistance.
  */
@@ -243,6 +298,7 @@ function Editor({ id, onBack }) {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [testTo, setTestTo] = useState('');
+  const [testedAt, setTestedAt] = useState(null);
 
   const load = useCallback(() => {
     api.campaign(id).then(setC).catch((e) => setErr(e.message));
@@ -293,6 +349,8 @@ function Editor({ id, onBack }) {
               onClick={() => act(() => api.setStatus(id, 'paused'), 'Paused.')}>⏸ Pause</button>}
         </div>
       </div>
+
+      <NextSteps c={c} enrolled={enrolled} testedAt={testedAt} />
 
       {/* The four numbers that actually matter, with progress. */}
       <div className="card">
@@ -362,7 +420,7 @@ function Editor({ id, onBack }) {
           <input className="grow" placeholder="your@email.com" value={testTo}
             onChange={(e) => setTestTo(e.target.value)} />
           <button className="btn btn--ghost" disabled={busy || !testTo}
-            onClick={() => act(() => api.testSend(id, { to: testTo, stepIndex: 0 }), 'Test sent — check your inbox and spam.')}>
+            onClick={() => act(async () => { await api.testSend(id, { to: testTo, stepIndex: 0 }); setTestedAt(Date.now()); }, 'Test sent — check your inbox and spam.')}>
             Send me a test
           </button>
         </div>
