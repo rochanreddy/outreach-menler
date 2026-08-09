@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 
 const BLANK_STEP = { subject: '', body: '', delayDays: 3, threaded: true };
@@ -292,6 +292,12 @@ function Enroller({ id, onDone }) {
   );
 }
 
+// The fields a user actually edits — everything else on the campaign object is
+// server-owned (stats, status, timestamps).
+const EDITABLE = ['name', 'fromName', 'fromEmail', 'replyTo', 'steps',
+  'dailyCap', 'sendWindowStart', 'sendWindowEnd', 'weekdaysOnly'];
+const editableOf = (c) => JSON.stringify(EDITABLE.map((k) => c?.[k]));
+
 function Editor({ id, onBack }) {
   const [c, setC] = useState(null);
   const [err, setErr] = useState('');
@@ -299,11 +305,39 @@ function Editor({ id, onBack }) {
   const [busy, setBusy] = useState(false);
   const [testTo, setTestTo] = useState('');
   const [testedAt, setTestedAt] = useState(null);
+  const [saveState, setSaveState] = useState('');   // '' | 'saving' | 'saved'
+  const savedRef = useRef('');                      // snapshot of what's on the server
 
   const load = useCallback(() => {
-    api.campaign(id).then(setC).catch((e) => setErr(e.message));
+    api.campaign(id).then((data) => {
+      savedRef.current = editableOf(data);
+      setC(data);
+    }).catch((e) => setErr(e.message));
   }, [id]);
   useEffect(load, [load]);
+
+  // Autosave. Losing typed copy because a Save button went unnoticed is the
+  // kind of thing that makes the whole tool feel broken — so edits persist on
+  // their own, a moment after you stop typing.
+  useEffect(() => {
+    if (!c) return undefined;
+    const current = editableOf(c);
+    if (current === savedRef.current) return undefined;
+    setSaveState('saving');
+    const t = setTimeout(async () => {
+      try {
+        const body = Object.fromEntries(EDITABLE.map((k) => [k, c[k]]));
+        await api.updateCampaign(id, body);
+        savedRef.current = current;
+        setSaveState('saved');
+        setTimeout(() => setSaveState((s) => (s === 'saved' ? '' : s)), 1800);
+      } catch (e) {
+        setSaveState('');
+        setErr(e.message);
+      }
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [c, id]);
 
   if (err && !c) return <p className="err">{err}</p>;
   if (!c) return <p className="empty">Loading…</p>;
@@ -341,6 +375,7 @@ function Editor({ id, onBack }) {
         <span className={`pill ${c.status === 'active' ? 'pill--ok' : c.status === 'paused' ? 'pill--warn' : 'pill--off'}`}>
           {c.status}
         </span>
+        {saveState && <span className="muted" style={{ fontSize: 12.5 }}>{saveState === 'saving' ? 'Saving…' : '✓ Saved'}</span>}
         <div style={{ marginLeft: 'auto' }}>
           {c.status !== 'active'
             ? <button className="btn btn--go" disabled={busy}
@@ -405,10 +440,9 @@ function Editor({ id, onBack }) {
           <button className="btn btn--ghost" onClick={() => setC({ ...c, steps: [...c.steps, { ...BLANK_STEP }] })}>
             + Add {c.steps.length ? 'follow-up' : 'first email'}
           </button>
-          <button className="btn" disabled={busy} onClick={save}>Save</button>
         </div>
         <p className="hint" style={{ marginTop: 10 }}>
-          <code>{'{{first_name}}'}</code> <code>{'{{college}}'}</code> <code>{'{{designation}}'}</code>{' '}
+          Changes save automatically. <code>{'{{first_name}}'}</code> <code>{'{{college}}'}</code> <code>{'{{designation}}'}</code>{' '}
           <code>{'{{city}}'}</code> — fallback with a pipe: <code>{'{{first_name|there}}'}</code>.
           The unsubscribe footer is added for you.
         </p>
