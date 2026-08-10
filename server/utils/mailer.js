@@ -17,8 +17,31 @@ const {
   OUTREACH_REPLY_TO,
 } = process.env;
 
+// Resend's HTTPS API, preferred over SMTP whenever a key is present.
+// This is not an optimisation: most managed hosts (Render included) firewall
+// outbound 25/465/587, so SMTP there fails with a connection timeout that no
+// amount of correct credentials will fix. Port 443 is never blocked.
+const RESEND_KEY = process.env.OUTREACH_RESEND_API_KEY || process.env.RESEND_API_KEY || '';
+
 export const mailerConfigured = () =>
-  Boolean(OUTREACH_SMTP_HOST && OUTREACH_SMTP_USER && OUTREACH_SMTP_PASS);
+  Boolean(RESEND_KEY || (OUTREACH_SMTP_HOST && OUTREACH_SMTP_USER && OUTREACH_SMTP_PASS));
+
+/** POST to the Resend API, with the error text surfaced rather than swallowed. */
+async function resendSend(payload) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${RESEND_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(20000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    // Resend puts the useful part in `message` — e.g. "The team@menler.in domain
+    // is not verified", which is the difference between a config error and a bug.
+    throw new Error(body?.message || body?.error?.message || `Resend returned ${res.status}`);
+  }
+  return body;
+}
 
 let transporter = null;
 if (mailerConfigured()) {
@@ -37,6 +60,22 @@ if (mailerConfigured()) {
 
 /** Confirms the SMTP credentials work, without sending anything. */
 export async function verifyMailer() {
+  if (RESEND_KEY) {
+    try {
+      // Cheap authenticated read — confirms the key works without sending.
+      const res = await fetch('https://api.resend.com/domains', {
+        headers: { authorization: `Bearer ${RESEND_KEY}` },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, error: 'Resend rejected the API key.' };
+      }
+      if (!res.ok) return { ok: false, error: `Resend API returned ${res.status}.` };
+      return { ok: true, host: 'Resend API (HTTPS)' };
+    } catch (err) {
+      return { ok: false, error: `Could not reach the Resend API: ${err?.message || err}` };
+    }
+  }
   if (!transporter) {
     // Outside production, "no SMTP" is the console-logging dev mode — usable, so
     // campaigns can be exercised locally. In production it's a hard stop.
@@ -79,6 +118,24 @@ export async function sendOutreachMail({
     },
     ...(inReplyTo ? { inReplyTo, references: inReplyTo } : {}),
   };
+
+  if (RESEND_KEY) {
+    const out = await resendSend({
+      from: `${name} <${addr}>`,
+      to: [to],
+      subject,
+      text,
+      ...(html ? { html } : {}),
+      reply_to: message.replyTo,
+      // List-Unsubscribe and threading both ride as raw headers.
+      headers: {
+        ...headers,
+        ...(inReplyTo ? { 'In-Reply-To': inReplyTo, References: inReplyTo } : {}),
+      },
+    });
+    // Resend's id doubles as the Message-ID we thread follow-ups against.
+    return { messageId: out.id };
+  }
 
   if (!transporter) {
     // Dev: log instead of sending, so flows can be exercised without SMTP.
