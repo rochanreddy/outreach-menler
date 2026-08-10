@@ -175,7 +175,7 @@ function NextSteps({ done, go }) {
             </div>
             {!s.ok && s.tab && (
               <button className={`btn btn--sm ${i === next ? '' : 'btn--ghost'}`} onClick={() => go(s.tab)}>
-                Fix
+                Take me there
               </button>
             )}
           </li>
@@ -422,11 +422,14 @@ function Editor({ id, onBack }) {
           {live
             ? <button className="btn btn--warn" disabled={busy}
               onClick={() => act(() => api.setStatus(id, 'paused'), 'Paused.')}>⏸ Pause</button>
-            : <button className="btn btn--go" disabled={busy || blocking.length > 0}
-              title={blocking.length ? `Still to do: ${blocking.map((b) => b.label).join(', ')}` : ''}
-              onClick={() => act(() => api.setStatus(id, 'active'), 'Live — sending within its window.')}>
-              ▶ Activate
-            </button>}
+            : blocking.length > 0
+              ? <button className="btn btn--ghost" onClick={() => setTab('launch')}>
+                Finish setup to send
+              </button>
+              : <button className="btn btn--go" disabled={busy}
+                onClick={() => act(() => api.setStatus(id, 'active'), 'Live — sending starts inside your window.')}>
+                ▶ Start sending
+              </button>}
         </div>
       </div>
 
@@ -559,6 +562,51 @@ function Editor({ id, onBack }) {
 
       {tab === 'launch' && (
       <>
+        {/* The actual send control. It used to live only in the page header,
+            which scrolls away — so on the one tab whose entire job is "start
+            sending", there was no visible way to start sending. */}
+        <div className="card launch">
+          <h2>{live ? 'This campaign is sending' : 'Start sending'}</h2>
+          {live ? (
+            <>
+              <p className="hint">
+                Emails go out on their own — up to {c.dailyCap} a day between {c.sendWindowStart}:00
+                and {c.sendWindowEnd}:00 IST{c.weekdaysOnly ? ', weekdays only' : ''}, spaced a few
+                seconds apart. Follow-ups stop the moment somebody replies.
+              </p>
+              <div className="row" style={{ marginTop: 14 }}>
+                <button className="btn btn--warn btn--lg" disabled={busy}
+                  onClick={() => act(() => api.setStatus(id, 'paused'), 'Paused — nothing more will go out.')}>
+                  ⏸ Pause sending
+                </button>
+                <span className="hint">{st.sent || 0} of {enrolled} sent so far.</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="hint">
+                Nothing has been sent yet. Turning this on hands the campaign to the
+                scheduler: it emails your {enrolled || 0} recipient{enrolled === 1 ? '' : 's'} at
+                up to {c.dailyCap} a day, between {c.sendWindowStart}:00 and {c.sendWindowEnd}:00 IST
+                {c.weekdaysOnly ? ', weekdays only' : ''}. You can pause at any time.
+              </p>
+              {blocking.length > 0 && (
+                <div className="note note--warn" style={{ marginTop: 14, marginBottom: 0 }}>
+                  <b>Not ready yet.</b> Finish {blocking.length === 1 ? 'this' : 'these'} first:{' '}
+                  {blocking.map((b) => b.label.toLowerCase()).join(', ')}. The checklist below
+                  takes you straight to each one.
+                </div>
+              )}
+              <div className="row" style={{ marginTop: 14 }}>
+                <button className="btn btn--go btn--lg" disabled={busy || blocking.length > 0}
+                  onClick={() => act(() => api.setStatus(id, 'active'), 'Live — sending starts inside your window.')}>
+                  ▶ Start sending to {enrolled} recipient{enrolled === 1 ? '' : 's'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
         {!live && <NextSteps done={checks} go={setTab} />}
         <div className="card">
           <h2>Sender and pacing</h2>

@@ -327,6 +327,11 @@ tbody tr:hover { background: var(--surface-2); }
 .wizard .w-num--done { background: rgba(29, 158, 117, .16); color: var(--green); }
 
 /* Move-to-next-step footer, so the path forward is always on screen. */
+/* The launch panel is the one card on the page that performs an irreversible,
+   outward-facing action, so it gets weight nothing else has. */
+.launch { border: 1.5px solid var(--border-2); border-top: 3px solid var(--green); }
+.launch h2 { font-size: 17px; }
+
 .wizard-foot {
   display: flex; justify-content: space-between; align-items: center;
   gap: 12px; flex-wrap: wrap; margin-top: 4px;
