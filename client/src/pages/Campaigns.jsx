@@ -163,7 +163,7 @@ function NextSteps({ done, go }) {
       <p className="hint">Each line turns green on its own. Click one to jump straight to it.</p>
       <ol className="guide">
         {done.map((s, i) => (
-          <li key={s.label} className={s.ok ? 'done' : ''}>
+          <li key={s.label} className={s.ok ? 'done' : i === next ? 'now' : ''}>
             <span className={`guide-mark ${s.ok ? 'guide-mark--done' : i === next ? 'guide-mark--now' : ''}`}>
               {s.ok ? '✓' : i + 1}
             </span>
@@ -439,12 +439,21 @@ function Editor({ id, onBack }) {
           zeroes to someone still drafting is noise that hides the real task. */}
       {st.sent > 0 && (
         <div className="stats">
-          <div className="stat stat--go"><b>{st.replied || 0}</b><span>Replied · {pct(st.replied, st.sent)}% of sent</span></div>
-          <div className="stat"><b>{st.opened || 0}</b><span>Opened · {pct(st.opened, st.sent)}% of sent</span></div>
-          <div className="stat"><b>{st.sent || 0} <span style={{ fontSize: 15 }}>/ {enrolled}</span></b><span>Sent of added</span></div>
-          <div className="stat stat--warn">
-            <b>{(st.bounced || 0) + (st.unsubscribed || 0)}</b>
-            <span>{st.bounced || 0} bounced · {st.unsubscribed || 0} unsubscribed</span>
+          <div className={`stat ${st.replied ? 'stat--go' : ''}`}>
+            <span>Replied</span>
+            <b>{st.replied || 0}<span> · {pct(st.replied, st.sent)}%</span></b>
+          </div>
+          <div className="stat">
+            <span>Opened</span>
+            <b>{st.opened || 0}<span> · {pct(st.opened, st.sent)}%</span></b>
+          </div>
+          <div className="stat">
+            <span>Sent of added</span>
+            <b>{st.sent || 0}<span> / {enrolled}</span></b>
+          </div>
+          <div className={`stat ${(st.bounced || st.unsubscribed) ? 'stat--warn' : 'stat--muted'}`}>
+            <span>Bounced · unsubscribed</span>
+            <b>{st.bounced || 0}<span> · {st.unsubscribed || 0}</span></b>
           </div>
         </div>
       )}

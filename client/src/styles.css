@@ -51,10 +51,10 @@ button, input, select, textarea { font-family: inherit; font-size: 14px; color: 
 /* Keyboard users must always be able to see where they are. */
 :focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
 
-h1, h2, h3 { margin: 0; letter-spacing: -0.015em; }
-h1 { font-size: 22px; font-weight: 700; }
-h2 { font-size: 15px; font-weight: 700; }
-h3 { font-size: 13.5px; font-weight: 700; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.022em; }
+h1 { font-size: 24px; font-weight: 700; line-height: 1.25; }
+h2 { font-size: 15.5px; font-weight: 680; }
+h3 { font-size: 13.5px; font-weight: 680; }
 p { margin: 0 0 10px; }
 p:last-child { margin-bottom: 0; }
 code {
@@ -118,9 +118,9 @@ a { color: var(--violet); }
 .wrap { padding: 24px 20px 72px; max-width: 1080px; margin: 0 auto; }
 
 /* A one-line explanation of the screen you just opened. */
-.page-head { margin-bottom: 20px; }
-.page-head h1 { margin-bottom: 5px; }
-.page-head p { color: var(--muted); max-width: 68ch; margin: 0; }
+.page-head { margin-bottom: 24px; }
+.page-head h1 { margin-bottom: 7px; }
+.page-head p { color: var(--muted); max-width: 66ch; margin: 0; font-size: 14.5px; }
 
 /* ── Cards ───────────────────────────────────────────────────────────────── */
 
@@ -128,12 +128,13 @@ a { color: var(--violet); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 20px;
+  padding: 22px;
   margin-bottom: 16px;
   box-shadow: var(--shadow);
 }
-.card > h2 { margin-bottom: 4px; }
-.card > h2 + .hint { margin-top: 0; margin-bottom: 16px; }
+.card > h2 { margin-bottom: 5px; }
+.card > h2 + .hint { margin-top: 0; margin-bottom: 18px; max-width: 74ch; }
+.card > h2:only-child, .card > .card-head:last-child { margin-bottom: 0; }
 .card-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
@@ -227,35 +228,71 @@ tbody tr:hover { background: var(--surface-2); }
 
 /* ── Stats ───────────────────────────────────────────────────────────────── */
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .stat {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 15px 16px; box-shadow: var(--shadow);
+  border-radius: var(--r); padding: 16px 18px; box-shadow: var(--shadow);
 }
-.stat b { display: block; font-size: 26px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
-.stat span { font-size: 12px; color: var(--muted); }
+/* Label above number: you read what it is before you read how many, and the
+   numbers line up across cards regardless of label length. */
+.stat span {
+  display: block; font-size: 11px; font-weight: 650; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 7px;
+}
+.stat b {
+  display: block; font-size: 30px; font-weight: 680; line-height: 1;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+}
+.stat b span {
+  display: inline; font-size: 15px; letter-spacing: 0; text-transform: none;
+  color: var(--faint); font-weight: 600; margin: 0;
+}
 .stat--go b { color: var(--green); }
 .stat--warn b { color: var(--amber); }
+.stat--muted b { color: var(--faint); }
 
 /* ── Guided steps (home screen + campaign checklist) ─────────────────────── */
 
+/* A vertical timeline. Completed steps stay fully legible — struck-through or
+   faded text reads as "cancelled", and it hides the status text people need. */
 .guide { list-style: none; margin: 0; padding: 0; }
 .guide li {
-  display: flex; gap: 13px; padding: 13px 0;
-  border-bottom: 1px solid var(--border);
+  position: relative;
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 14px 14px 14px 12px;
+  border-radius: var(--r);
+  transition: background .15s;
 }
-.guide li:last-child { border-bottom: 0; padding-bottom: 0; }
+/* The connector, drawn from each marker down to the next. */
+.guide li::before {
+  content: ''; position: absolute;
+  left: 25px; top: 38px; bottom: -6px; width: 1.5px;
+  background: var(--border); border-radius: 2px;
+}
+.guide li:last-child::before { display: none; }
+.guide li.done::before { background: rgba(29, 158, 117, .3); }
+
+.guide li.now { background: #f6f5fd; }
+
 .guide-mark {
-  flex: none; width: 24px; height: 24px; border-radius: 999px;
-  display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
-  background: #edecf7; color: var(--muted); margin-top: 1px;
+  flex: none; width: 27px; height: 27px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  background: var(--surface); color: var(--muted);
+  border: 1.5px solid var(--border-2); z-index: 1;
 }
-.guide-mark--done { background: rgba(29, 158, 117, .15); color: var(--green); }
-.guide-mark--now { background: var(--violet); color: #fff; }
-.guide-body { flex: 1; min-width: 0; }
-.guide-body b { display: block; font-size: 13.5px; }
-.guide li.done .guide-body b { color: var(--faint); text-decoration: line-through; }
-.guide-body .hint { margin-top: 2px; }
+.guide-mark--done {
+  background: var(--green); color: #fff; border-color: var(--green);
+  font-size: 13px;
+}
+.guide-mark--now {
+  background: var(--violet); color: #fff; border-color: var(--violet);
+  box-shadow: 0 0 0 4px rgba(83, 74, 183, .14);
+}
+.guide-body { flex: 1; min-width: 0; padding-top: 3px; }
+.guide-body b { display: block; font-size: 14px; font-weight: 650; }
+.guide li.done .guide-body b { color: var(--muted); font-weight: 600; }
+.guide-body .hint { margin-top: 3px; }
+.guide li > .btn { margin-top: 1px; }
 
 /* ── Campaign wizard ─────────────────────────────────────────────────────── */
 

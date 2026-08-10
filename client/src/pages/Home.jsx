@@ -97,20 +97,23 @@ export default function Home({ go }) {
 
       <div className="stats">
         <div className="stat">
-          <b>{d.contacts.toLocaleString('en-IN')}</b>
           <span>Contacts collected</span>
+          <b>{d.contacts.toLocaleString('en-IN')}</b>
         </div>
         <div className="stat">
-          <b>{enrolledTotal.toLocaleString('en-IN')}</b>
           <span>Added to campaigns</span>
+          <b>{enrolledTotal.toLocaleString('en-IN')}</b>
         </div>
-        <div className="stat stat--go">
-          <b>{sentTotal.toLocaleString('en-IN')}</b>
+        <div className={`stat ${sentTotal ? 'stat--go' : 'stat--muted'}`}>
           <span>Emails sent</span>
+          <b>{sentTotal.toLocaleString('en-IN')}</b>
         </div>
-        <div className="stat stat--go">
-          <b>{repliedTotal.toLocaleString('en-IN')}</b>
-          <span>Replies{sentTotal ? ` · ${Math.round((repliedTotal / sentTotal) * 100)}%` : ''}</span>
+        <div className={`stat ${repliedTotal ? 'stat--go' : 'stat--muted'}`}>
+          <span>Replies</span>
+          <b>
+            {repliedTotal.toLocaleString('en-IN')}
+            {sentTotal > 0 && <span> · {Math.round((repliedTotal / sentTotal) * 100)}%</span>}
+          </b>
         </div>
       </div>
 
@@ -123,7 +126,7 @@ export default function Home({ go }) {
         </p>
         <ol className="guide">
           {steps.map((s, i) => (
-            <li key={s.title} className={s.done ? 'done' : ''}>
+            <li key={s.title} className={s.done ? 'done' : i === nextIdx ? 'now' : ''}>
               <span className={`guide-mark ${s.done ? 'guide-mark--done' : i === nextIdx ? 'guide-mark--now' : ''}`}>
                 {s.done ? '✓' : i + 1}
               </span>
