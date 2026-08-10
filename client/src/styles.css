@@ -1,85 +1,320 @@
+/* ── Menler outreach — design system ─────────────────────────────────────────
+   Built for a team member who has never seen the tool before. The rules:
+   one accent colour so "what do I click" is never ambiguous, a type scale
+   with only four sizes, and generous whitespace so a dense screen still
+   reads as a sequence of steps rather than a wall of controls.            */
+
 :root {
+  /* Brand */
   --ink: #26215c;
-  --specialist: #534ab7;
-  --placed: #1d9e75;
-  --amber: #ba7517;
-  --parchment: #f5f3ee;
-  --cloud: #eeecfb;
-  --border: #e3e0ef;
-  --muted: #6b6880;
-  --white: #fff;
+  --ink-2: #3b3579;
+  --violet: #534ab7;
+  --green: #1d9e75;
+  --amber: #b8730f;
+  --red: #c0392b;
+
+  /* Surfaces */
+  --bg: #f4f2ee;
+  --surface: #fff;
+  --surface-2: #faf9fd;
+  --border: #e4e1ef;
+  --border-2: #d3cfe6;
+
+  /* Text */
+  --text: #26215c;
+  --muted: #6d6a83;
+  --faint: #918ea6;
+
+  /* Scale */
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 16px;
+  --shadow: 0 1px 2px rgba(38, 33, 92, .06);
+  --shadow-lg: 0 12px 32px -12px rgba(38, 33, 92, .28);
+  --ring: 0 0 0 3px rgba(83, 74, 183, .28);
 }
 
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
-  background: var(--parchment);
-  color: var(--ink);
-  font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
-button, input, select, textarea { font-family: inherit; font-size: 14px; }
 
-/* ── shell ── */
+button, input, select, textarea { font-family: inherit; font-size: 14px; color: inherit; }
+
+/* Keyboard users must always be able to see where they are. */
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+
+h1, h2, h3 { margin: 0; letter-spacing: -0.015em; }
+h1 { font-size: 22px; font-weight: 700; }
+h2 { font-size: 15px; font-weight: 700; }
+h3 { font-size: 13.5px; font-weight: 700; }
+p { margin: 0 0 10px; }
+p:last-child { margin-bottom: 0; }
+code {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 5px; font-size: 12.5px;
+}
+a { color: var(--violet); }
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+
 .nav {
+  background: var(--ink);
+  color: #fff;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .08);
+}
+.nav-brand {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 15px;
+  padding: 15px 0;
+  white-space: nowrap;
+}
+.nav-brand span { color: #a49de4; font-weight: 500; }
+
+.nav-tabs { display: flex; gap: 2px; overflow-x: auto; flex: 1; scrollbar-width: none; }
+.nav-tabs::-webkit-scrollbar { display: none; }
+
+/* Numbered tabs. The number is the teaching device — it states the order of
+   the workflow without a paragraph of explanation. */
+.nav-tab {
+  background: none; border: 0; color: #b9b3e2; cursor: pointer;
+  padding: 15px 13px; white-space: nowrap;
   display: flex; align-items: center; gap: 8px;
-  background: var(--ink); padding: 12px 22px; color: #fff; flex-wrap: wrap;
+  border-bottom: 2.5px solid transparent;
+  font-size: 13.5px;
 }
-.nav-brand { font-weight: 800; margin-right: 14px; letter-spacing: -0.01em; }
-.nav button {
-  background: none; border: 0; color: #c9c5e8; padding: 8px 14px;
-  border-radius: 999px; cursor: pointer;
+.nav-tab:hover { color: #fff; }
+.nav-tab.on { color: #fff; font-weight: 650; border-bottom-color: #8b81e8; }
+.nav-num {
+  display: grid; place-items: center;
+  width: 19px; height: 19px; border-radius: 999px;
+  background: rgba(255, 255, 255, .15); color: #fff;
+  font-size: 10.5px; font-weight: 700;
 }
-.nav button.on { background: rgba(255,255,255,0.14); color: #fff; font-weight: 600; }
-.nav .right { margin-left: auto; }
-.wrap { padding: 22px; max-width: 1200px; margin: 0 auto; }
+.nav-tab.on .nav-num { background: #8b81e8; }
 
-/* ── bits ── */
-.card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
-.card h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.nav-out {
+  background: none; border: 1px solid rgba(255, 255, 255, .22); color: #d6d2f0;
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: 12.5px;
+  white-space: nowrap;
+}
+.nav-out:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+
+.wrap { padding: 24px 20px 72px; max-width: 1080px; margin: 0 auto; }
+
+/* A one-line explanation of the screen you just opened. */
+.page-head { margin-bottom: 20px; }
+.page-head h1 { margin-bottom: 5px; }
+.page-head p { color: var(--muted); max-width: 68ch; margin: 0; }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.card > h2 { margin-bottom: 4px; }
+.card > h2 + .hint { margin-top: 0; margin-bottom: 16px; }
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.card-head h2 { margin: 0; }
+
+/* ── Controls ────────────────────────────────────────────────────────────── */
+
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.grow { flex: 1; min-width: 180px; }
+.grow { flex: 1; min-width: 200px; }
+
 .btn {
-  background: var(--ink); color: #fff; border: 0; border-radius: 9px;
-  padding: 9px 16px; cursor: pointer; font-weight: 600;
+  background: var(--ink); color: #fff; border: 1px solid var(--ink);
+  border-radius: var(--r-sm); padding: 9px 16px; cursor: pointer;
+  font-weight: 600; font-size: 13.5px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: background .12s, border-color .12s, opacity .12s;
 }
-.btn:hover { filter: brightness(1.12); }
-.btn:disabled { opacity: .55; cursor: default; }
-.btn--ghost { background: var(--white); color: var(--ink); border: 1px solid var(--border); }
-.btn--go { background: var(--placed); }
-.btn--warn { background: var(--amber); }
+.btn:hover:not(:disabled) { background: var(--ink-2); border-color: var(--ink-2); }
+.btn:disabled { opacity: .42; cursor: not-allowed; }
+.btn--ghost { background: var(--surface); color: var(--text); border-color: var(--border-2); }
+.btn--ghost:hover:not(:disabled) { background: var(--surface-2); border-color: var(--violet); }
+.btn--go { background: var(--green); border-color: var(--green); }
+.btn--go:hover:not(:disabled) { background: #17845f; border-color: #17845f; }
+.btn--warn { background: var(--amber); border-color: var(--amber); }
+.btn--danger { background: var(--surface); color: var(--red); border-color: #e8c4bf; }
+.btn--lg { padding: 12px 22px; font-size: 14.5px; }
+.btn--sm { padding: 6px 11px; font-size: 12.5px; }
+
 input, select, textarea {
-  background: var(--white); border: 1px solid var(--border);
-  border-radius: 9px; padding: 9px 12px; color: var(--ink); width: 100%;
+  background: var(--surface); border: 1px solid var(--border-2);
+  border-radius: var(--r-sm); padding: 9px 12px; width: 100%;
+  transition: border-color .12s;
 }
-textarea { min-height: 130px; resize: vertical; line-height: 1.55; }
-label.field { display: block; margin-bottom: 10px; }
-label.field span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+input:hover, select:hover, textarea:hover { border-color: var(--faint); }
+input:focus, select:focus, textarea:focus { border-color: var(--violet); box-shadow: var(--ring); outline: none; }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+textarea { min-height: 150px; resize: vertical; line-height: 1.65; }
+input[type="file"] { padding: 7px 10px; background: var(--surface-2); }
+input[type="checkbox"] { width: auto; }
 
-table { width: 100%; border-collapse: collapse; background: var(--white); }
-th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); }
-th { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-tbody tr:hover { background: #faf9ff; }
-.table-wrap { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+label.field { display: block; margin-bottom: 12px; }
+label.field > span {
+  display: block; font-size: 12px; font-weight: 600;
+  color: var(--muted); margin-bottom: 5px;
+}
 
-.pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--cloud); color: var(--specialist); }
-.pill--ok { background: rgba(29,158,117,.14); color: var(--placed); }
-.pill--warn { background: rgba(186,117,23,.14); color: var(--amber); }
-.pill--off { background: #f0eff5; color: var(--muted); }
+.hint { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.hint code { font-size: 11.5px; }
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+
+.table-wrap { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: 0; }
+th {
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); background: var(--surface-2); font-weight: 700;
+}
+tbody tr:hover { background: var(--surface-2); }
+.empty { padding: 34px 20px; text-align: center; color: var(--muted); }
+.empty b { color: var(--text); display: block; margin-bottom: 6px; font-size: 15px; }
+
+/* ── Status ──────────────────────────────────────────────────────────────── */
+
+.pill {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 999px;
+  background: #ecebfa; color: var(--violet);
+  text-transform: capitalize; white-space: nowrap;
+}
+.pill--ok { background: rgba(29, 158, 117, .13); color: var(--green); }
+.pill--warn { background: rgba(184, 115, 15, .14); color: var(--amber); }
+.pill--off { background: #efeef4; color: var(--muted); }
 .muted { color: var(--muted); }
-.empty { padding: 26px; text-align: center; color: var(--muted); }
-.err { color: #c0392b; margin: 8px 0 0; }
-.ok { color: var(--placed); margin: 8px 0 0; }
+.err { color: var(--red); margin: 10px 0 0; font-size: 13px; }
+.ok { color: var(--green); margin: 10px 0 0; font-size: 13px; }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
-.stat { background: var(--white); border: 1px solid var(--border); border-top: 3px solid var(--specialist); border-radius: 12px; padding: 14px; }
-.stat b { display: block; font-size: 24px; }
+/* Message boxes — the tone carries the meaning, so they never need a label. */
+.note {
+  border-radius: var(--r); padding: 13px 15px; font-size: 13px;
+  line-height: 1.6; border: 1px solid; margin-bottom: 14px;
+}
+.note--info { background: #f1f0fc; border-color: #ddd9f5; color: var(--ink); }
+.note--warn { background: #fdf6ec; border-color: #f0dcc0; color: #7a4c07; }
+.note--bad { background: #fdf1ef; border-color: #f2d2cd; color: #8f2c1f; }
+.note--good { background: #eef9f5; border-color: #c7e9dd; color: #10684b; }
+.note b { font-weight: 700; }
+
+/* ── Stats ───────────────────────────────────────────────────────────────── */
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 15px 16px; box-shadow: var(--shadow);
+}
+.stat b { display: block; font-size: 26px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
 .stat span { font-size: 12px; color: var(--muted); }
+.stat--go b { color: var(--green); }
+.stat--warn b { color: var(--amber); }
 
-/* ── login ── */
-.login { max-width: 340px; margin: 16vh auto; }
-.step { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fcfcff; }
-.step-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+/* ── Guided steps (home screen + campaign checklist) ─────────────────────── */
+
+.guide { list-style: none; margin: 0; padding: 0; }
+.guide li {
+  display: flex; gap: 13px; padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+.guide li:last-child { border-bottom: 0; padding-bottom: 0; }
+.guide-mark {
+  flex: none; width: 24px; height: 24px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
+  background: #edecf7; color: var(--muted); margin-top: 1px;
+}
+.guide-mark--done { background: rgba(29, 158, 117, .15); color: var(--green); }
+.guide-mark--now { background: var(--violet); color: #fff; }
+.guide-body { flex: 1; min-width: 0; }
+.guide-body b { display: block; font-size: 13.5px; }
+.guide li.done .guide-body b { color: var(--faint); text-decoration: line-through; }
+.guide-body .hint { margin-top: 2px; }
+
+/* ── Campaign wizard ─────────────────────────────────────────────────────── */
+
+.crumb {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.crumb h1 { font-size: 19px; }
+
+/* Horizontal step tabs. This replaces a single very long scroll — the reason
+   "Who gets this campaign" was never found is that it lived below the fold. */
+.wizard {
+  display: flex; gap: 4px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--border); overflow-x: auto;
+  scrollbar-width: none;
+}
+.wizard::-webkit-scrollbar { display: none; }
+.wizard button {
+  background: none; border: 0; cursor: pointer; white-space: nowrap;
+  padding: 11px 15px; color: var(--muted); font-size: 13.5px;
+  border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+  display: flex; align-items: center; gap: 8px;
+}
+.wizard button:hover { color: var(--text); }
+.wizard button.on { color: var(--ink); font-weight: 700; border-bottom-color: var(--violet); }
+.wizard .w-num {
+  display: grid; place-items: center; width: 20px; height: 20px;
+  border-radius: 999px; background: #eceafa; color: var(--muted);
+  font-size: 11px; font-weight: 700;
+}
+.wizard button.on .w-num { background: var(--violet); color: #fff; }
+.wizard .w-num--done { background: rgba(29, 158, 117, .16); color: var(--green); }
+
+/* Move-to-next-step footer, so the path forward is always on screen. */
+.wizard-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap; margin-top: 4px;
+}
+
+.step { border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 12px; background: var(--surface-2); }
+.step-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .tpl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
-.hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
-.warn-box { background: rgba(186,117,23,.09); border: 1px solid rgba(186,117,23,.3); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+
+/* ── Login ───────────────────────────────────────────────────────────────── */
+
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+.login { width: 100%; max-width: 360px; margin: 0; box-shadow: var(--shadow-lg); }
+.login h1 { font-size: 20px; margin-bottom: 3px; }
+.login .hint { margin-bottom: 20px; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+  .nav { padding: 0 14px; gap: 10px; }
+  .nav-brand span { display: none; }
+  .wrap { padding: 18px 14px 60px; }
+  .card { padding: 16px; border-radius: var(--r); }
+  h1 { font-size: 19px; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .stat b { font-size: 22px; }
+  th, td { padding: 10px 11px; }
+}

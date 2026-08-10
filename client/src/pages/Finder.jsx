@@ -38,11 +38,11 @@ function Directory({ onQueue, busy }) {
 
   return (
     <div className="card">
-      <h2>Browse the college directory</h2>
-      <p className="hint" style={{ marginTop: 0 }}>
-        A national index of ~40,000 colleges, built from Careers360's published
-        sitemap. Pick a city, narrow by keyword, then queue them — each college's
-        own website is then found and crawled for real contacts.
+      <h2>Pick colleges from the directory</h2>
+      <p className="hint">
+        An index of about 40,000 Indian colleges. Choose a city, narrow it down,
+        then tick the ones you want. Each college’s own website is then visited
+        and read for placement, principal, dean and HOD email addresses.
       </p>
       <div className="row">
         <select style={{ width: 220 }} value={city} onChange={(e) => setCity(e.target.value)}>
@@ -107,7 +107,7 @@ function Directory({ onQueue, busy }) {
 
 // Find contacts on college websites, review what came back, then approve the
 // good ones into the contact database. Nothing is emailable until it's approved.
-export default function Finder() {
+export default function Finder({ go }) {
   const [sites, setSites] = useState('');
   const [job, setJob] = useState(null);
   const [jobs, setJobs] = useState([]);
@@ -147,11 +147,13 @@ export default function Finder() {
     }
   };
 
+  const [imported, setImported] = useState(null);
+
   const importGood = async () => {
     setBusy(true); setErr(''); setMsg('');
     try {
       const r = await api.scrapeImport(job._id, { minScore: 60 });
-      setMsg(`Imported ${r.contacts} contacts across ${r.institutions} new colleges (${r.skipped} skipped).`);
+      setImported(r);
       setJob(await api.scrapeJob(job._id));
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -161,6 +163,15 @@ export default function Finder() {
 
   return (
     <>
+      <div className="page-head">
+        <h1>Find colleges</h1>
+        <p>
+          Search college websites for public contact addresses. Nothing here can be
+          emailed yet — you review what comes back, then import the good ones into
+          your contact database.
+        </p>
+      </div>
+
       <Directory onQueue={async (names) => {
         setBusy(true); setErr(''); setMsg('');
         try {
@@ -170,13 +181,12 @@ export default function Finder() {
         } catch (e) { setErr(e.message); } finally { setBusy(false); }
       }} busy={busy} />
       <div className="card">
-        <h2>Find contacts</h2>
-        <p className="hint" style={{ marginTop: 0 }}>
-          Paste <b>college names or websites</b> — one per line, mix them freely. A
-          name is looked up to find the official site first. Each site is then
-          crawled for placement-cell, principal, dean and HOD contacts, including
-          department pages. Public pages only, one site at a time, robots.txt
-          respected. Or upload a CSV with <code>college, website, city, state</code>.
+        <h2>Or paste your own list</h2>
+        <p className="hint">
+          College names or websites, one per line — mix them freely. A name gets
+          looked up to find its official site first. Only public pages are read, one
+          site at a time, and robots.txt is respected. You can also upload a CSV with{' '}
+          <code>college, website, city, state</code>.
         </p>
         <textarea
           value={sites}
@@ -196,6 +206,22 @@ export default function Finder() {
         {msg && <p className="ok">{msg}</p>}
       </div>
 
+      {/* The moment people got lost: import succeeds, and nothing says what's
+          next. Name the next action and hand them a button to it. */}
+      {imported && (
+        <div className="note note--good">
+          <b>Imported {imported.contacts} contact{imported.contacts === 1 ? '' : 's'}</b>
+          {imported.institutions ? ` across ${imported.institutions} new college${imported.institutions === 1 ? '' : 's'}` : ''}
+          {imported.skipped ? `, ${imported.skipped} skipped as duplicates or unsendable` : ''}.
+          <div className="row" style={{ marginTop: 10 }}>
+            <button className="btn btn--go btn--sm" onClick={() => go?.('campaigns')}>
+              Next: put them in a campaign →
+            </button>
+            <span className="hint">They’re saved, but nothing is emailed until you add them to a campaign.</span>
+          </div>
+        </div>
+      )}
+
       {job && (
         <div className="card">
           <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -210,9 +236,10 @@ export default function Finder() {
             )}
           </div>
           <p className="hint">
-            Found <b>{job.foundContacts}</b> addresses. “Import the good ones” keeps
-            anything scoring 60+ with a working mail domain — placement cells,
-            principals and named staff — and drops generic junk.
+            Found <b>{job.foundContacts}</b> addresses. <b>Import the good ones</b> keeps
+            anything scoring 60+ with a working mail server — placement cells, principals
+            and named staff — and drops the generic junk. Imported contacts land in{' '}
+            <b>Contacts</b>; you then add them to a campaign to actually email them.
           </p>
 
           <div className="table-wrap" style={{ marginTop: 12 }}>

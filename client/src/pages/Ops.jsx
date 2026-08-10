@@ -29,19 +29,34 @@ export default function Ops() {
 
   return (
     <>
+      <div className="page-head">
+        <h1>Sending health</h1>
+        <p>Whether email can actually go out, what’s sending now, and who must never be contacted.</p>
+      </div>
+
       <div className="card">
-        <h2>Email transport</h2>
+        <h2>Can we send email?</h2>
         {!status && <p className="empty">Checking…</p>}
         {status && (
           status.mail?.ok
-            ? <p><span className="pill pill--ok">connected</span> <span className="muted">{status.mail.host}</span></p>
-            : <div className="warn-box"><b>Not sending.</b> {status.mail?.error}</div>
+            ? (
+              <p style={{ marginTop: 8 }}>
+                <span className="pill pill--ok">Yes — connected</span>{' '}
+                <span className="muted">via {status.mail.host}</span>
+              </p>
+            )
+            : (
+              <div className="note note--bad" style={{ marginTop: 8 }}>
+                <b>No — nothing can go out.</b> {status.mail?.error}
+                <br />
+                Campaigns stay queued until this is fixed; no email is lost.
+              </div>
+            )
         )}
-        <p className="hint">
-          This must be a <b>dedicated cold-outreach provider on its own domain</b> (e.g.
-          outreach.menler.in via Instantly / Smartlead / SES) — never the transactional
-          provider that sends certificates and receipts. A spam complaint on a shared
-          domain takes those down too.
+        <p className="hint" style={{ marginTop: 12 }}>
+          Ideally this is a <b>dedicated domain for outreach</b> (e.g. outreach.menler.in) rather
+          than the one that sends certificates and receipts — a spam complaint against a shared
+          domain takes those down with it.
         </p>
       </div>
 

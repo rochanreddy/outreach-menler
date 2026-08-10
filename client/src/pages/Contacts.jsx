@@ -58,10 +58,18 @@ export default function Contacts() {
 
   return (
     <>
-      <div className="card">
-        <h2>Import</h2>
-        <p className="hint" style={{ marginTop: 0 }}>
-          CSV columns: <code>college, city, state, website, type, student_count, name, designation,
+      <div className="page-head">
+        <h1>Contacts</h1>
+        <p>
+          Everyone you’ve collected, in one place. This is your address book — being
+          listed here doesn’t email anyone. To do that, add them to a campaign.
+        </p>
+      </div>
+
+      <details className="card">
+        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Upload a CSV</summary>
+        <p className="hint" style={{ marginTop: 12 }}>
+          Columns: <code>college, city, state, website, type, student_count, name, designation,
           department, email, phone, linkedin</code>. One row per person; colleges are matched on
           name + city so several contacts group under one college. Duplicates and anyone on the
           do-not-contact list are skipped automatically.
@@ -70,7 +78,7 @@ export default function Contacts() {
           <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={doImport} className="grow" />
         </div>
         {msg && <p className="ok">{msg}</p>}
-      </div>
+      </details>
 
       <div className="card">
         <div className="row" style={{ marginBottom: 14 }}>
@@ -95,7 +103,12 @@ export default function Contacts() {
               </thead>
               <tbody>
                 {loading && <tr><td colSpan={5} className="empty">Loading…</td></tr>}
-                {!loading && !rows.length && <tr><td colSpan={5} className="empty">Nothing yet — import a CSV above.</td></tr>}
+                {!loading && !rows.length && (
+                  <tr><td colSpan={5} className="empty">
+                    <b>No colleges yet</b>
+                    Go to <b>Find colleges</b> to search for them, or upload a CSV above.
+                  </td></tr>
+                )}
                 {!loading && rows.map((r) => (
                   <tr key={r._id}>
                     <td><b>{r.name}</b></td>

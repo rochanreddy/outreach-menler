@@ -102,17 +102,8 @@ function Recipients({ id, onChange }) {
               <tr><td colSpan={6} className="empty">
                 {rows.length ? 'Nobody in this group yet.' : (
                   <>
-                    <b>Nobody enrolled yet.</b>
-                    <br />
-                    Importing only adds people to your contact database. Enrolling is
-                    what puts them into this campaign — they’re separate on purpose, so
-                    one contact can be used by more than one campaign.
-                    <br />
-                    <button className="btn" style={{ marginTop: 12 }}
-                      onClick={() => document.getElementById('who-gets-this')
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
-                      Choose who gets this campaign ↓
-                    </button>
+                    <b>No recipients yet</b>
+                    Use <b>Add recipients</b> just above to put contacts into this campaign.
                   </>
                 )}
               </td></tr>
@@ -163,50 +154,28 @@ function Recipients({ id, onChange }) {
  * A campaign only goes live after four things, in order. Without this the page
  * is a wall of panels with no indication of which one you're supposed to touch.
  */
-function NextSteps({ c, enrolled, testedAt }) {
-  const written = c.steps?.length > 0 && c.steps.every((s) => s.subject?.trim() && s.body?.trim());
-  const chosen = enrolled > 0;
-  const live = c.status === 'active';
-
-  const steps = [
-    { done: written, label: 'Write your email', hint: 'Subject and body, in the Sequence box below.' },
-    { done: chosen, label: 'Choose who gets it', hint: 'In "Who gets this campaign" — pick a role, preview, enrol.' },
-    { done: Boolean(testedAt), label: 'Send yourself a test', hint: 'Check it reads right before a stranger sees it.' },
-    { done: live, label: 'Activate', hint: 'Then it sends on its own, within your daily cap.' },
-  ];
-  const next = steps.findIndex((s) => !s.done);
-
-  if (live && next === -1) {
-    return (
-      <div className="card" style={{ borderLeft: '4px solid var(--placed)' }}>
-        <b>This campaign is live.</b>{' '}
-        <span className="muted">
-          Sending {c.dailyCap}/day between {c.sendWindowStart}:00 and {c.sendWindowEnd}:00 IST.
-          Check back here for replies.
-        </span>
-      </div>
-    );
-  }
+function NextSteps({ done, go }) {
+  const next = done.findIndex((s) => !s.ok);
 
   return (
-    <div className="card" style={{ borderLeft: '4px solid var(--specialist)' }}>
-      <h2 style={{ marginBottom: 12 }}>What to do next</h2>
-      <ol style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
-        {steps.map((s, i) => (
-          <li key={s.label} style={{
-            display: 'flex', gap: 10, alignItems: 'flex-start', padding: '7px 0',
-            opacity: s.done ? 0.5 : i === next ? 1 : 0.65,
-          }}>
-            <span style={{
-              width: 22, height: 22, borderRadius: '50%', flexShrink: 0, fontSize: 12,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
-              background: s.done ? 'var(--placed)' : i === next ? 'var(--specialist)' : 'var(--cloud)',
-              color: s.done || i === next ? '#fff' : 'var(--muted)',
-            }}>{s.done ? '✓' : i + 1}</span>
-            <span>
-              <b style={{ textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</b>
-              {i === next && <><br /><span className="hint">{s.hint}</span></>}
+    <div className="card">
+      <h2>Before this can go live</h2>
+      <p className="hint">Each line turns green on its own. Click one to jump straight to it.</p>
+      <ol className="guide">
+        {done.map((s, i) => (
+          <li key={s.label} className={s.ok ? 'done' : ''}>
+            <span className={`guide-mark ${s.ok ? 'guide-mark--done' : i === next ? 'guide-mark--now' : ''}`}>
+              {s.ok ? '✓' : i + 1}
             </span>
+            <div className="guide-body">
+              <b>{s.label}</b>
+              {!s.ok && <p className="hint">{s.hint}</p>}
+            </div>
+            {!s.ok && s.tab && (
+              <button className={`btn btn--sm ${i === next ? '' : 'btn--ghost'}`} onClick={() => go(s.tab)}>
+                Fix
+              </button>
+            )}
           </li>
         ))}
       </ol>
@@ -237,7 +206,7 @@ function Enroller({ id, onDone }) {
     setBusy(true); setErr(''); setMsg('');
     try {
       const r = await api.enroll(id, f);
-      setMsg(`Enrolled ${r.enrolled}${r.skipped ? `, skipped ${r.skipped}` : ''}.`);
+      setMsg(`Added ${r.enrolled} recipient${r.enrolled === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} already on the list` : ''}.`);
       setPreview(null);
       onDone?.();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -245,10 +214,12 @@ function Enroller({ id, onDone }) {
 
   return (
     <div className="card" id="who-gets-this">
-      <h2>Who gets this campaign</h2>
-      <p className="hint" style={{ marginTop: 0 }}>
-        Leave a box empty to ignore it. People who unsubscribed, bounced, or are on
-        the do-not-contact list are always excluded — and nobody is enrolled twice.
+      <h2>Add recipients</h2>
+      <p className="hint">
+        Pick people from your contact database and add them to this campaign.
+        <b> Collecting contacts doesn’t email them</b> — this step is what does.
+        Leave a box empty to ignore it; unsubscribes, bounces and the do-not-contact
+        list are always excluded, and nobody is added twice.
       </p>
       <div className="row">
         <label className="field grow"><span>Role — matches designation or address</span>
@@ -268,14 +239,14 @@ function Enroller({ id, onDone }) {
       </div>
 
       <div className="row">
-        <button className="btn btn--ghost" onClick={check} disabled={busy}>
-          {busy ? 'Checking…' : 'Preview who matches'}
+        <button className={`btn ${preview ? 'btn--ghost' : ''}`} onClick={check} disabled={busy}>
+          {busy ? 'Checking…' : preview ? 'Check again' : 'Preview who matches'}
         </button>
         {preview && (
-          <button className="btn" onClick={commit} disabled={busy || !preview.wouldEnroll}>
+          <button className="btn btn--go" onClick={commit} disabled={busy || !preview.wouldEnroll}>
             {preview.wouldEnroll
-              ? `Enrol ${preview.wouldEnroll} contact${preview.wouldEnroll === 1 ? '' : 's'}`
-              : 'Nothing new to enrol'}
+              ? `Add ${preview.wouldEnroll} recipient${preview.wouldEnroll === 1 ? '' : 's'}`
+              : 'Nobody new to add'}
           </button>
         )}
       </div>
@@ -337,6 +308,7 @@ function Editor({ id, onBack }) {
   const [busy, setBusy] = useState(false);
   const [testTo, setTestTo] = useState('');
   const [testedAt, setTestedAt] = useState(null);
+  const [tab, setTab] = useState('write');
   const [saveState, setSaveState] = useState('');   // '' | 'saving' | 'saved'
   const savedRef = useRef('');                      // snapshot of what's on the server
 
@@ -377,19 +349,6 @@ function Editor({ id, onBack }) {
   const set = (k, v) => setC({ ...c, [k]: v });
   const setStep = (i, k, v) => setC({ ...c, steps: c.steps.map((s, j) => (i === j ? { ...s, [k]: v } : s)) });
 
-  const save = async () => {
-    setBusy(true); setErr(''); setMsg('');
-    try {
-      await api.updateCampaign(id, {
-        name: c.name, fromName: c.fromName, fromEmail: c.fromEmail, replyTo: c.replyTo,
-        steps: c.steps, dailyCap: c.dailyCap, sendWindowStart: c.sendWindowStart,
-        sendWindowEnd: c.sendWindowEnd, weekdaysOnly: c.weekdaysOnly,
-      });
-      setMsg('Saved.');
-      load();
-    } catch (e) { setErr(e.message); } finally { setBusy(false); }
-  };
-
   const act = async (fn, okMsg) => {
     setBusy(true); setErr(''); setMsg('');
     try { const r = await fn(); setMsg(typeof r === 'string' ? r : okMsg); load(); }
@@ -398,49 +357,113 @@ function Editor({ id, onBack }) {
 
   const st = c.stats || {};
   const enrolled = st.enrolled || 0;
+  const live = c.status === 'active';
+
+  // One source of truth for "is this ready", shared by the wizard tab ticks,
+  // the checklist, and the Activate button — so they can never disagree.
+  const checks = [
+    {
+      key: 'write',
+      label: 'Write your email',
+      hint: 'Every step needs a subject and a body.',
+      tab: 'write',
+      ok: c.steps?.length > 0 && c.steps.every((s) => s.subject?.trim() && s.body?.trim()),
+    },
+    {
+      key: 'who',
+      label: 'Add recipients',
+      hint: 'Collecting contacts doesn’t send them anything — they have to be added here.',
+      tab: 'who',
+      ok: enrolled > 0,
+    },
+    {
+      key: 'test',
+      label: 'Send yourself a test',
+      hint: 'The only way to catch a broken placeholder before a dean sees it.',
+      tab: 'test',
+      ok: Boolean(testedAt),
+    },
+    {
+      key: 'from',
+      label: 'Set the from-address',
+      hint: 'Which mailbox this sends from.',
+      tab: 'launch',
+      ok: Boolean(c.fromEmail),
+    },
+  ];
+  const blocking = checks.filter((s) => !s.ok);
+
+  const TABS = [
+    { key: 'write', n: 1, label: 'Write', ok: checks[0].ok },
+    { key: 'who', n: 2, label: `Recipients${enrolled ? ` (${enrolled})` : ''}`, ok: checks[1].ok },
+    { key: 'test', n: 3, label: 'Test', ok: checks[2].ok },
+    { key: 'launch', n: 4, label: 'Launch', ok: live },
+  ];
+  const idx = TABS.findIndex((t) => t.key === tab);
+  const nextTab = TABS[idx + 1];
 
   return (
     <>
-      <div className="row" style={{ marginBottom: 14 }}>
-        <button className="btn btn--ghost" onClick={onBack}>← All campaigns</button>
-        <b>{c.name}</b>
-        <span className={`pill ${c.status === 'active' ? 'pill--ok' : c.status === 'paused' ? 'pill--warn' : 'pill--off'}`}>
+      <div className="crumb">
+        <button className="btn btn--ghost btn--sm" onClick={onBack}>← All campaigns</button>
+        <h1>{c.name}</h1>
+        <span className={`pill ${live ? 'pill--ok' : c.status === 'paused' ? 'pill--warn' : 'pill--off'}`}>
           {c.status}
         </span>
-        {saveState && <span className="muted" style={{ fontSize: 12.5 }}>{saveState === 'saving' ? 'Saving…' : '✓ Saved'}</span>}
+        {saveState && (
+          <span className="muted" style={{ fontSize: 12.5 }}>
+            {saveState === 'saving' ? 'Saving…' : '✓ Saved'}
+          </span>
+        )}
         <div style={{ marginLeft: 'auto' }}>
-          {c.status !== 'active'
-            ? <button className="btn btn--go" disabled={busy}
-              onClick={() => act(() => api.setStatus(id, 'active'), 'Live — sending within its window.')}>▶ Activate</button>
-            : <button className="btn btn--warn" disabled={busy}
-              onClick={() => act(() => api.setStatus(id, 'paused'), 'Paused.')}>⏸ Pause</button>}
+          {live
+            ? <button className="btn btn--warn" disabled={busy}
+              onClick={() => act(() => api.setStatus(id, 'paused'), 'Paused.')}>⏸ Pause</button>
+            : <button className="btn btn--go" disabled={busy || blocking.length > 0}
+              title={blocking.length ? `Still to do: ${blocking.map((b) => b.label).join(', ')}` : ''}
+              onClick={() => act(() => api.setStatus(id, 'active'), 'Live — sending within its window.')}>
+              ▶ Activate
+            </button>}
         </div>
       </div>
 
-      <NextSteps c={c} enrolled={enrolled} testedAt={testedAt} />
+      {live && (
+        <div className="note note--good">
+          <b>This campaign is live.</b> Sending up to {c.dailyCap} a day between{' '}
+          {c.sendWindowStart}:00 and {c.sendWindowEnd}:00 IST
+          {c.weekdaysOnly ? ', weekdays only' : ''}. Follow-ups stop automatically when someone replies.
+        </div>
+      )}
 
-      {/* The four numbers that actually matter, with progress. */}
-      <div className="card">
+      {/* Results first, but only once there's something to report. Showing four
+          zeroes to someone still drafting is noise that hides the real task. */}
+      {st.sent > 0 && (
         <div className="stats">
-          <div className="stat"><b>{st.replied || 0}</b><span>Replied · {pct(st.replied, st.sent)}% of sent</span></div>
-          <div className="stat" style={{ borderTopColor: 'var(--placed)' }}>
-            <b>{st.opened || 0}</b><span>Opened · {pct(st.opened, st.sent)}% of sent</span>
-          </div>
-          <div className="stat" style={{ borderTopColor: 'var(--ink)' }}>
-            <b>{st.sent || 0}<span style={{ fontSize: 15, color: 'var(--muted)' }}> / {enrolled}</span></b>
-            <span>Sent of enrolled</span>
-          </div>
-          <div className="stat" style={{ borderTopColor: 'var(--amber)' }}>
+          <div className="stat stat--go"><b>{st.replied || 0}</b><span>Replied · {pct(st.replied, st.sent)}% of sent</span></div>
+          <div className="stat"><b>{st.opened || 0}</b><span>Opened · {pct(st.opened, st.sent)}% of sent</span></div>
+          <div className="stat"><b>{st.sent || 0} <span style={{ fontSize: 15 }}>/ {enrolled}</span></b><span>Sent of added</span></div>
+          <div className="stat stat--warn">
             <b>{(st.bounced || 0) + (st.unsubscribed || 0)}</b>
             <span>{st.bounced || 0} bounced · {st.unsubscribed || 0} unsubscribed</span>
           </div>
         </div>
+      )}
+
+      <div className="wizard">
+        {TABS.map((t) => (
+          <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>
+            <span className={`w-num ${t.ok ? 'w-num--done' : ''}`}>{t.ok ? '✓' : t.n}</span>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <Recipients id={id} onChange={load} />
-
+      {tab === 'write' && (
       <div className="card">
-        <h2>Sequence</h2>
+        <h2>Your email and its follow-ups</h2>
+        <p className="hint">
+          Follow-ups only go to people who haven’t replied, and stop the moment they do.
+        </p>
         <div className="tpl-bar">
           <span className="hint">Start from a template:</span>
           {TEMPLATES.map((t) => (
@@ -494,28 +517,40 @@ function Editor({ id, onBack }) {
           The unsubscribe footer is added for you.
         </p>
       </div>
+      )}
 
+      {tab === 'who' && (
+        <>
+          <Enroller id={id} onDone={load} />
+          <Recipients id={id} onChange={load} />
+        </>
+      )}
+
+      {tab === 'test' && (
       <div className="card">
-        <h2>Send a test</h2>
+        <h2>Send yourself a test</h2>
+        <p className="hint">
+          This sends the first email to you, exactly as a recipient would get it —
+          placeholders filled, unsubscribe footer attached. It doesn’t touch your recipients.
+        </p>
         <div className="row">
           <input className="grow" placeholder="your@email.com" value={testTo}
             onChange={(e) => setTestTo(e.target.value)} />
-          <button className="btn btn--ghost" disabled={busy || !testTo}
-            onClick={() => act(async () => { await api.testSend(id, { to: testTo, stepIndex: 0 }); setTestedAt(Date.now()); }, 'Test sent — check your inbox and spam.')}>
+          <button className="btn" disabled={busy || !testTo}
+            onClick={() => act(async () => { await api.testSend(id, { to: testTo, stepIndex: 0 }); setTestedAt(Date.now()); }, 'Test sent — check your inbox, and your spam folder.')}>
             Send me a test
           </button>
         </div>
-        <p className="hint">Always test before activating — it's the only way to catch a broken placeholder before a dean sees it.</p>
+        {testedAt && <p className="ok">Test sent. Check the name, the college name, and that the unsubscribe link works.</p>}
       </div>
+      )}
 
-      <Enroller id={id} onDone={load} />
-
-      {/* Set once, then out of the way. */}
-      <details className="card">
-        <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--muted)' }}>
-          Settings — sender &amp; pacing
-        </summary>
-        <div style={{ marginTop: 16 }}>
+      {tab === 'launch' && (
+      <>
+        {!live && <NextSteps done={checks} go={setTab} />}
+        <div className="card">
+          <h2>Sender and pacing</h2>
+          <p className="hint">Set once. Slow, steady sending is what keeps you out of spam folders.</p>
           <div className="row">
             <label className="field grow"><span>Campaign name</span>
               <input value={c.name} onChange={(e) => set('name', e.target.value)} />
@@ -554,13 +589,28 @@ function Editor({ id, onBack }) {
                 <option value="yes">Yes</option><option value="no">No</option>
               </select>
             </label>
-            <button className="btn" disabled={busy} onClick={save} style={{ alignSelf: 'flex-end', marginBottom: 10 }}>
-              Save
-            </button>
           </div>
-          <p className="hint">Keep it to 20–40/day on a new domain for the first few weeks, then raise slowly.</p>
+          <p className="hint">
+            Saved automatically. Keep it to 20–40 a day on a new domain for the first few
+            weeks, then raise it slowly — sudden volume is what gets a domain flagged.
+          </p>
         </div>
-      </details>
+      </>
+      )}
+
+      {/* Always visible: the way forward, so nobody has to guess which tab is next. */}
+      <div className="wizard-foot">
+        <span className="hint">
+          {blocking.length === 0
+            ? live ? 'Everything is set — this campaign is sending.' : 'Ready to activate.'
+            : `Still to do: ${blocking.map((b) => b.label.toLowerCase()).join(' · ')}`}
+        </span>
+        {nextTab && (
+          <button className="btn btn--ghost" onClick={() => setTab(nextTab.key)}>
+            Next: {nextTab.label.replace(/ \(\d+\)$/, '')} →
+          </button>
+        )}
+      </div>
 
       {err && <p className="err">{err}</p>}
       {msg && <p className="ok">{msg}</p>}
@@ -594,40 +644,62 @@ export default function Campaigns() {
 
   return (
     <>
+      <div className="page-head">
+        <h1>Campaigns</h1>
+        <p>
+          A campaign is one email plus its follow-ups, sent to a list of contacts.
+          Follow-ups stop by themselves the moment someone replies.
+        </p>
+      </div>
+
       <div className="card">
-        <h2>New campaign</h2>
+        <h2>Start a new one</h2>
+        <p className="hint">Name it after who you’re contacting, so the team can tell them apart later.</p>
         <div className="row">
           <input className="grow" placeholder="e.g. Hyderabad engineering colleges — August"
             value={name} onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && create()} />
-          <button className="btn" onClick={create}>Create</button>
+          <button className="btn" onClick={create} disabled={!name.trim()}>Create campaign</button>
         </div>
+        <p className="hint" style={{ marginTop: 10 }}>
+          It opens with a written email already in place — you only edit the wording.
+        </p>
       </div>
 
+      {err && <p className="err">{err}</p>}
+
       <div className="card">
-        <h2>Campaigns</h2>
-        {err && <p className="err">{err}</p>}
+        <h2>Your campaigns</h2>
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>Name</th><th>Status</th><th>Sent</th><th>Opened</th><th>Replied</th><th /></tr></thead>
-            <tbody>
-              {!rows.length && <tr><td colSpan={6} className="empty">No campaigns yet.</td></tr>}
-              {rows.map((r) => (
-                <tr key={r._id} onClick={() => setOpen(r._id)} style={{ cursor: 'pointer' }}>
-                  <td><b>{r.name}</b></td>
-                  <td>
-                    <span className={`pill ${r.status === 'active' ? 'pill--ok' : r.status === 'paused' ? 'pill--warn' : 'pill--off'}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td>{r.stats?.sent || 0}<span className="muted"> / {r.stats?.enrolled || 0}</span></td>
-                  <td>{r.stats?.opened || 0}</td>
-                  <td><b>{r.stats?.replied || 0}</b></td>
-                  <td><button className="btn btn--ghost">Open</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Status</th><th>Sent</th><th>Opened</th><th>Replied</th><th /></tr>
+              </thead>
+              <tbody>
+                {!rows.length && (
+                  <tr><td colSpan={6} className="empty">
+                    <b>No campaigns yet</b>
+                    Create one above — it takes about two minutes to get to a test send.
+                  </td></tr>
+                )}
+                {rows.map((r) => (
+                  <tr key={r._id} onClick={() => setOpen(r._id)} style={{ cursor: 'pointer' }}>
+                    <td><b>{r.name}</b></td>
+                    <td>
+                      <span className={`pill ${r.status === 'active' ? 'pill--ok' : r.status === 'paused' ? 'pill--warn' : 'pill--off'}`}>
+                        {r.status === 'draft' ? 'not sending' : r.status}
+                      </span>
+                    </td>
+                    <td>{r.stats?.sent || 0}<span className="muted"> / {r.stats?.enrolled || 0}</span></td>
+                    <td>{r.stats?.opened || 0}</td>
+                    <td><b>{r.stats?.replied || 0}</b></td>
+                    <td><button className="btn btn--ghost btn--sm">Open</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </>
