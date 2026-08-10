@@ -23,7 +23,10 @@ const STATUS_PILL = {
 };
 
 /** Who's in the campaign and what happened — the day-to-day view. */
-function Recipients({ id, onChange }) {
+// `rev` is bumped by the parent whenever recipients are added. Without it this
+// only refetched when the campaign id changed, so a freshly added list stayed
+// invisible until a manual page refresh.
+function Recipients({ id, rev, onChange }) {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,7 @@ function Recipients({ id, onChange }) {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, rev]);
   useEffect(() => { load(); }, [load]);
 
   const shown = rows.filter((r) => {
@@ -62,8 +65,7 @@ function Recipients({ id, onChange }) {
   const markReplied = async (e, row) => {
     e.stopPropagation();
     await api.markReplied(row._id);
-    load();
-    onChange?.();
+    onChange?.();   // bumps rev, which reloads this table too
   };
 
   const TABS = [
@@ -309,6 +311,7 @@ function Editor({ id, onBack }) {
   const [testTo, setTestTo] = useState('');
   const [testedAt, setTestedAt] = useState(null);
   const [tab, setTab] = useState('write');
+  const [rev, setRev] = useState(0);
   const [saveState, setSaveState] = useState('');   // '' | 'saving' | 'saved'
   const savedRef = useRef('');                      // snapshot of what's on the server
 
@@ -530,8 +533,8 @@ function Editor({ id, onBack }) {
 
       {tab === 'who' && (
         <>
-          <Enroller id={id} onDone={load} />
-          <Recipients id={id} onChange={load} />
+          <Enroller id={id} onDone={() => { load(); setRev((v) => v + 1); }} />
+          <Recipients id={id} rev={rev} onChange={() => { load(); setRev((v) => v + 1); }} />
         </>
       )}
 
