@@ -36,6 +36,12 @@ const campaignSchema = new mongoose.Schema(
     sentToday: { type: Number, default: 0 },
     sentTodayOn: { type: String, default: '' },  // YYYY-MM-DD (IST) for the counter reset
 
+    // When a test was last sent, and where. Kept on the record rather than in
+    // the page's memory so a refresh doesn't re-block a campaign that was
+    // already checked — and so the next person can see it was checked at all.
+    lastTestAt: { type: Date, default: null },
+    lastTestTo: { type: String, default: '' },
+
     stats: {
       enrolled: { type: Number, default: 0 },
       sent: { type: Number, default: 0 },

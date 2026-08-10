@@ -352,6 +352,11 @@ function Editor({ id, onBack }) {
   const set = (k, v) => setC({ ...c, [k]: v });
   const setStep = (i, k, v) => setC({ ...c, steps: c.steps.map((s, j) => (i === j ? { ...s, [k]: v } : s)) });
 
+  const sendTest = () => act(async () => {
+    await api.testSend(id, { to: testTo, stepIndex: 0 });
+    setTestedAt(Date.now());
+  }, 'Test sent — check your inbox, and your spam folder.');
+
   const act = async (fn, okMsg) => {
     setBusy(true); setErr(''); setMsg('');
     try { const r = await fn(); setMsg(typeof r === 'string' ? r : okMsg); load(); }
@@ -384,7 +389,7 @@ function Editor({ id, onBack }) {
       label: 'Send yourself a test',
       hint: 'The only way to catch a broken placeholder before a dean sees it.',
       tab: 'test',
-      ok: Boolean(testedAt),
+      ok: Boolean(testedAt || c.lastTestAt),
     },
     {
       key: 'from',
@@ -550,13 +555,27 @@ function Editor({ id, onBack }) {
         </p>
         <div className="row">
           <input className="grow" placeholder="your@email.com" value={testTo}
-            onChange={(e) => setTestTo(e.target.value)} />
-          <button className="btn" disabled={busy || !testTo}
-            onClick={() => act(async () => { await api.testSend(id, { to: testTo, stepIndex: 0 }); setTestedAt(Date.now()); }, 'Test sent — check your inbox, and your spam folder.')}>
-            Send me a test
+            onChange={(e) => setTestTo(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && testTo && !busy && sendTest()} />
+          <button className="btn" disabled={busy || !testTo} onClick={sendTest}>
+            {busy ? 'Sending…' : 'Send me a test'}
           </button>
         </div>
-        {testedAt && <p className="ok">Test sent. Check the name, the college name, and that the unsubscribe link works.</p>}
+
+        {(testedAt || c.lastTestAt) && (
+          <div className="note note--good" style={{ marginTop: 16, marginBottom: 0 }}>
+            <b>Test sent{c.lastTestTo ? ` to ${c.lastTestTo}` : ''}.</b> Open it and check three
+            things: your name reads right, the college name reads right, and the unsubscribe
+            link at the bottom works. Check the spam folder too — if it landed there, fix that
+            before sending to anyone else.
+            <div className="row" style={{ marginTop: 12 }}>
+              <button className="btn btn--go" onClick={() => setTab('launch')}>
+                Looks good — go to sending →
+              </button>
+              <span className="hint">You can send another test after editing.</span>
+            </div>
+          </div>
+        )}
       </div>
       )}
 

@@ -274,7 +274,10 @@ router.post('/:id/test', requireAuth, async (req, res) => {
       fromEmail: campaign.fromEmail,
       replyTo: campaign.replyTo,
     });
-    res.json({ ok: true });
+    campaign.lastTestAt = new Date();
+    campaign.lastTestTo = to;
+    await campaign.save();
+    res.json({ ok: true, lastTestAt: campaign.lastTestAt, lastTestTo: to });
   } catch (err) {
     res.status(500).json({ error: err?.message || 'Test send failed.' });
   }
