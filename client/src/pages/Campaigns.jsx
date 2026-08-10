@@ -27,12 +27,18 @@ function Recipients({ id, onChange }) {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const d = await api.enrollments(id);
       setRows(d.rows || []);
+      setErr('');
+    } catch (e) {
+      // Without this, a dropped session or a sleeping API renders as
+      // "Nobody enrolled yet" — indistinguishable from an empty campaign.
+      setErr(e.message || 'Could not load recipients.');
     } finally {
       setLoading(false);
     }
@@ -89,9 +95,14 @@ function Recipients({ id, onChange }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={6} className="empty">Loading…</td></tr>}
-            {!loading && !shown.length && (
+            {!loading && err && (
+              <tr><td colSpan={6} className="empty">Couldn’t load recipients — {err}</td></tr>
+            )}
+            {!loading && !err && !shown.length && (
               <tr><td colSpan={6} className="empty">
-                {rows.length ? 'Nobody in this group yet.' : 'Nobody enrolled yet — use “Enrol contacts” below.'}
+                {rows.length
+                  ? 'Nobody in this group yet.'
+                  : 'Nobody enrolled yet. Importing contacts only adds them to your contact database — use “Enrol contacts” below to put them in this campaign.'}
               </td></tr>
             )}
             {!loading && shown.map((r) => (
