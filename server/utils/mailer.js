@@ -21,7 +21,16 @@ const {
 // This is not an optimisation: most managed hosts (Render included) firewall
 // outbound 25/465/587, so SMTP there fails with a connection timeout that no
 // amount of correct credentials will fix. Port 443 is never blocked.
-const RESEND_KEY = process.env.OUTREACH_RESEND_API_KEY || process.env.RESEND_API_KEY || '';
+// Resend's SMTP password *is* an API key, so a host configured for Resend SMTP
+// already carries everything the API needs. Recognise that rather than making
+// people add the same secret a second time under a different name.
+const smtpPassIsResendKey = OUTREACH_SMTP_USER === 'resend'
+  && /^re_/.test(OUTREACH_SMTP_PASS || '');
+
+const RESEND_KEY = process.env.OUTREACH_RESEND_API_KEY
+  || process.env.RESEND_API_KEY
+  || (smtpPassIsResendKey ? OUTREACH_SMTP_PASS : '')
+  || '';
 
 export const mailerConfigured = () =>
   Boolean(RESEND_KEY || (OUTREACH_SMTP_HOST && OUTREACH_SMTP_USER && OUTREACH_SMTP_PASS));
