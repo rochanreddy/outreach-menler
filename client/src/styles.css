@@ -80,5 +80,6 @@ tbody tr:hover { background: #faf9ff; }
 .login { max-width: 340px; margin: 16vh auto; }
 .step { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fcfcff; }
 .step-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.tpl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
 .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .warn-box { background: rgba(186,117,23,.09); border: 1px solid rgba(186,117,23,.3); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.55; }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
+import { DEFAULT_TEMPLATE, TEMPLATES, stepsFrom } from '../templates.js';
 
 const BLANK_STEP = { subject: '', body: '', delayDays: 3, threaded: true };
 
@@ -409,6 +410,21 @@ function Editor({ id, onBack }) {
 
       <div className="card">
         <h2>Sequence</h2>
+        <div className="tpl-bar">
+          <span className="hint">Start from a template:</span>
+          {TEMPLATES.map((t) => (
+            <button key={t.id} className="btn btn--ghost" title={t.blurb}
+              onClick={() => {
+                const written = c.steps.some((s) => s.subject?.trim() || s.body?.trim());
+                // Only nag when there's real work to lose.
+                if (written && !window.confirm(`Replace the current emails with the "${t.label}" template?`)) return;
+                setC({ ...c, steps: stepsFrom(t) });
+              }}>{t.label}</button>
+          ))}
+        </div>
+        <p className="hint" style={{ marginTop: -4, marginBottom: 14 }}>
+          These are written and ready to send. Edit the wording to sound like you — then send yourself a test below.
+        </p>
         {c.steps.map((s, i) => (
           <div className="step" key={i}>
             <div className="step-head">
@@ -537,7 +553,9 @@ export default function Campaigns() {
   const create = async () => {
     if (!name.trim()) return;
     try {
-      const c = await api.createCampaign({ name, steps: [{ ...BLANK_STEP }] });
+      // Start from a real template, not an empty box — a blank Sequence panel
+      // is the single thing people get stuck on here.
+      const c = await api.createCampaign({ name, steps: stepsFrom(DEFAULT_TEMPLATE) });
       setName('');
       setOpen(c._id);
     } catch (e) { setErr(e.message); }
