@@ -100,9 +100,21 @@ function Recipients({ id, onChange }) {
             )}
             {!loading && !err && !shown.length && (
               <tr><td colSpan={6} className="empty">
-                {rows.length
-                  ? 'Nobody in this group yet.'
-                  : 'Nobody enrolled yet. Importing contacts only adds them to your contact database — use “Enrol contacts” below to put them in this campaign.'}
+                {rows.length ? 'Nobody in this group yet.' : (
+                  <>
+                    <b>Nobody enrolled yet.</b>
+                    <br />
+                    Importing only adds people to your contact database. Enrolling is
+                    what puts them into this campaign — they’re separate on purpose, so
+                    one contact can be used by more than one campaign.
+                    <br />
+                    <button className="btn" style={{ marginTop: 12 }}
+                      onClick={() => document.getElementById('who-gets-this')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+                      Choose who gets this campaign ↓
+                    </button>
+                  </>
+                )}
               </td></tr>
             )}
             {!loading && shown.map((r) => (
@@ -232,7 +244,7 @@ function Enroller({ id, onDone }) {
   };
 
   return (
-    <div className="card">
+    <div className="card" id="who-gets-this">
       <h2>Who gets this campaign</h2>
       <p className="hint" style={{ marginTop: 0 }}>
         Leave a box empty to ignore it. People who unsubscribed, bounced, or are on
@@ -275,6 +287,14 @@ function Enroller({ id, onDone }) {
             {preview.alreadyEnrolled ? ` · ${preview.alreadyEnrolled} already in this campaign` : ''}
             {' '}· <b>{preview.wouldEnroll}</b> would be added
           </p>
+          {preview.matched === 0 && (
+            <p className="hint">
+              Nothing matched. Either the filters above are too narrow — clear the role,
+              city and state boxes and preview again — or these contacts haven’t been
+              imported yet. Check the <b>Contacts</b> page: if it’s empty, go to{' '}
+              <b>Find contacts</b>, run a scrape, and click <b>Import the good ones</b> first.
+            </p>
+          )}
           {preview.sample?.length > 0 && (
             <div className="table-wrap">
               <table>
