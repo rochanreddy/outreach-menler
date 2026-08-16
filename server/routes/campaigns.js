@@ -24,6 +24,72 @@ router.get('/', requireAuth, async (_req, res) => {
   res.json({ rows });
 });
 
+router.get('/all-enrollments', requireAuth, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+
+    const limit = Math.min(Number(req.query.limit) || 500, 1000);
+    const rows = await Enrollment.find(filter)
+      .populate('contact', 'name email designation')
+      .populate('institution', 'name city state')
+      .populate('campaign', 'name status')
+      .sort('-updatedAt')
+      .limit(limit)
+      .lean();
+
+    const ids = rows.map((r) => r._id);
+    const stats = await Message.aggregate([
+      { $match: { enrollment: { $in: ids } } },
+      {
+        $group: {
+          _id: '$enrollment',
+          sent: { $sum: { $cond: [{ $eq: ['$status', 'sent'] }, 1, 0] } },
+          opens: { $sum: '$openCount' },
+          clicks: { $sum: '$clickCount' },
+          firstOpenedAt: { $min: '$openedAt' },
+          lastSentAt: { $max: '$sentAt' },
+        },
+      },
+    ]);
+    const byEnrollment = new Map(stats.map((s) => [String(s._id), s]));
+
+    res.json({
+      rows: rows.map((r) => {
+        const s = byEnrollment.get(String(r._id)) || {};
+        return {
+          ...r,
+          sentCount: s.sent || 0,
+          openCount: s.opens || 0,
+          clickCount: s.clicks || 0,
+          openedAt: s.firstOpenedAt || null,
+          lastSentAt: s.lastSentAt || r.lastSentAt,
+        };
+      }),
+    });
+  } catch (err) {
+    console.error('all-enrollments error', err);
+    res.status(500).json({ error: 'Could not load all enrollments.' });
+  }
+});
+
+router.get('/all-messages', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 200, 500);
+    const rows = await Message.find()
+      .populate('contact', 'name email designation')
+      .populate('institution', 'name city state')
+      .populate('campaign', 'name')
+      .sort('-sentAt')
+      .limit(limit)
+      .lean();
+    res.json({ rows });
+  } catch (err) {
+    console.error('all-messages error', err);
+    res.status(500).json({ error: 'Could not load all messages.' });
+  }
+});
+
 router.get('/:id', requireAuth, async (req, res) => {
   const campaign = await Campaign.findById(req.params.id).lean();
   if (!campaign) return res.status(404).json({ error: 'Not found.' });

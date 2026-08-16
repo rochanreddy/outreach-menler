@@ -40,6 +40,8 @@ export const api = {
 
   // campaigns
   campaigns: () => request('/api/campaigns'),
+  allEnrollments: (q = '') => request(`/api/campaigns/all-enrollments${q}`),
+  allMessages: (q = '') => request(`/api/campaigns/all-messages${q}`),
   campaign: (id) => request(`/api/campaigns/${id}`),
   createCampaign: (body) => request('/api/campaigns', { method: 'POST', body }),
   updateCampaign: (id, body) => request(`/api/campaigns/${id}`, { method: 'PATCH', body }),

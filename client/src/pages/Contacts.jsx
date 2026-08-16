@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
+import { exportToCsv } from '../utils/csv.js';
 
 const PIPELINE = ['new', 'contacted', 'replied', 'meeting', 'won', 'lost', 'unqualified'];
 const pillFor = (s) =>
@@ -14,6 +15,9 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [sup, setSup] = useState([]);
+  const [supValue, setSupValue] = useState('');
+  const [supMsg, setSupMsg] = useState('');
   const fileRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -56,6 +60,49 @@ export default function Contacts() {
     load();
   };
 
+  const loadSuppressions = useCallback(() => {
+    api.suppressions().then((d) => setSup(d.rows || [])).catch(() => {});
+  }, []);
+  useEffect(() => { loadSuppressions(); }, [loadSuppressions]);
+
+  const addSuppression = async () => {
+    const value = supValue.trim();
+    if (!value) return;
+    setSupMsg(''); setErr('');
+    try {
+      await api.addSuppression({ value, reason: 'manual' });
+      setSupValue('');
+      setSupMsg(`${value} will never be emailed.`);
+      loadSuppressions();
+    } catch (e) { setErr(e.message); }
+  };
+
+  const exportCsv = () => {
+    if (view === 'institutions') {
+      const fields = [
+        { label: 'College Name', get: (r) => r.name || '' },
+        { label: 'City', get: (r) => r.city || '' },
+        { label: 'State', get: (r) => r.state || '' },
+        { label: 'Contacts Count', get: (r) => r.contactCount || 0 },
+        { label: 'Status', get: (r) => r.status || '' },
+        { label: 'Website', get: (r) => r.website || '' },
+        { label: 'Domain', get: (r) => r.domain || '' },
+      ];
+      exportToCsv('colleges_list', fields, rows);
+    } else {
+      const fields = [
+        { label: 'Name', get: (r) => r.name || '' },
+        { label: 'Email', get: (r) => r.email || '' },
+        { label: 'Designation', get: (r) => r.designation || '' },
+        { label: 'College', get: (r) => r.institution?.name || '' },
+        { label: 'State', get: (r) => r.institution?.state || '' },
+        { label: 'Unsubscribed', get: (r) => (r.unsubscribed ? 'Yes' : 'No') },
+        { label: 'Bounced', get: (r) => (r.bounced ? 'Yes' : 'No') },
+      ];
+      exportToCsv('contacts_list', fields, rows);
+    }
+  };
+
   return (
     <>
       <div className="page-head">
@@ -65,6 +112,43 @@ export default function Contacts() {
           listed here doesn’t email anyone. To do that, add them to a campaign.
         </p>
       </div>
+
+      {/* Moved here from the old Sending health tab. It belongs with the
+          address book anyway — it is a fact about a contact, not about the
+          mail server — and it was the one thing on that tab with nowhere
+          else to live. */}
+      <details className="card">
+        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+          Do-not-contact list {sup.length > 0 && <span className="muted">— {sup.length}</span>}
+        </summary>
+        <p className="hint" style={{ marginTop: 12 }}>
+          Nobody here is ever emailed. Unsubscribes and hard bounces land here on their own
+          and are checked before every send — including across re-imports, so a removed
+          contact stays removed. Add a whole domain to block an entire college.
+        </p>
+        <div className="row">
+          <input className="grow" placeholder="person@college.edu or college.edu (whole domain)"
+            value={supValue} onChange={(e) => setSupValue(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addSuppression()} />
+          <button className="btn" onClick={addSuppression} disabled={!supValue.trim()}>Add</button>
+        </div>
+        {supMsg && <p className="ok">{supMsg}</p>}
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table>
+            <thead><tr><th>Value</th><th>Kind</th><th>Reason</th></tr></thead>
+            <tbody>
+              {!sup.length && <tr><td colSpan={3} className="empty">Nobody blocked yet.</td></tr>}
+              {sup.map((s) => (
+                <tr key={s._id}>
+                  <td>{s.value}</td>
+                  <td><span className="pill">{s.kind}</span></td>
+                  <td className="muted">{s.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
 
       <details className="card">
         <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Upload a CSV</summary>
@@ -91,6 +175,9 @@ export default function Contacts() {
               {PIPELINE.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           )}
+          <button className="btn btn--ghost" onClick={exportCsv}>
+            📥 Export CSV
+          </button>
         </div>
 
         {err && <p className="err">{err}</p>}

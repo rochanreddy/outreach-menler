@@ -4,7 +4,6 @@ import Contacts from './pages/Contacts.jsx';
 import Campaigns from './pages/Campaigns.jsx';
 import Finder from './pages/Finder.jsx';
 import Home from './pages/Home.jsx';
-import Ops from './pages/Ops.jsx';
 
 function Login({ onIn }) {
   const [u, setU] = useState('');
@@ -61,7 +60,6 @@ const TABS = [
   { key: 'finder', label: 'Find colleges', num: 1 },
   { key: 'contacts', label: 'Contacts', num: 2 },
   { key: 'campaigns', label: 'Campaigns', num: 3 },
-  { key: 'ops', label: 'Sending health' },
 ];
 
 export default function App() {
@@ -110,7 +108,6 @@ export default function App() {
         {tab === 'finder' && <Finder go={go} />}
         {tab === 'contacts' && <Contacts go={go} />}
         {tab === 'campaigns' && <Campaigns />}
-        {tab === 'ops' && <Ops />}
       </div>
     </>
   );

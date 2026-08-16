@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { DEFAULT_TEMPLATE, TEMPLATES, stepsFrom } from '../templates.js';
+import { exportToCsv } from '../utils/csv.js';
 
 const BLANK_STEP = { subject: '', body: '', delayDays: 3, threaded: true };
 
@@ -68,6 +69,21 @@ function Recipients({ id, rev, onChange }) {
     onChange?.();   // bumps rev, which reloads this table too
   };
 
+  const exportRecipients = () => {
+    const fields = [
+      { label: 'Name', get: (r) => r.contact?.name || '' },
+      { label: 'Email', get: (r) => r.contact?.email || '' },
+      { label: 'College', get: (r) => r.institution?.name || '' },
+      { label: 'City', get: (r) => r.institution?.city || '' },
+      { label: 'Status', get: (r) => r.status || '' },
+      { label: 'Emails Sent', get: (r) => r.sentCount || 0 },
+      { label: 'Open Count', get: (r) => r.openCount || 0 },
+      { label: 'Click Count', get: (r) => r.clickCount || 0 },
+      { label: 'Last Sent At', get: (r) => r.lastSentAt ? new Date(r.lastSentAt).toLocaleString() : '' },
+    ];
+    exportToCsv('campaign_recipients', fields, shown);
+  };
+
   const TABS = [
     ['all', 'Everyone'],
     ['replied', 'Replied'],
@@ -80,6 +96,9 @@ function Recipients({ id, rev, onChange }) {
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
         <h2 style={{ margin: 0 }}>Recipients</h2>
         <span className="row" style={{ gap: 6 }}>
+          <button className="btn btn--sm btn--ghost" onClick={exportRecipients}>
+            📥 Export CSV
+          </button>
           {TABS.map(([k, label]) => (
             <button key={k} className={`btn ${filter === k ? '' : 'btn--ghost'}`}
               style={{ padding: '6px 12px', fontSize: 12.5 }}
