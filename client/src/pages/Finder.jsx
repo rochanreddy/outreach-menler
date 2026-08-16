@@ -39,11 +39,6 @@ function Directory({ onQueue, busy }) {
   return (
     <div className="card">
       <h2>Pick colleges from the directory</h2>
-      <p className="hint">
-        An index of about 40,000 Indian colleges. Choose a city, narrow it down,
-        then tick the ones you want. Each college’s own website is then visited
-        and read for placement, principal, dean and HOD email addresses.
-      </p>
       <div className="row">
         <select style={{ width: 220 }} value={city} onChange={(e) => setCity(e.target.value)}>
           <option value="">All cities</option>
@@ -165,11 +160,6 @@ export default function Finder({ go }) {
     <>
       <div className="page-head">
         <h1>Find colleges</h1>
-        <p>
-          Search college websites for public contact addresses. Nothing here can be
-          emailed yet — you review what comes back, then import the good ones into
-          your contact database.
-        </p>
       </div>
 
       <Directory onQueue={async (names) => {
@@ -183,9 +173,7 @@ export default function Finder({ go }) {
       <div className="card">
         <h2>Or paste your own list</h2>
         <p className="hint">
-          College names or websites, one per line — mix them freely. A name gets
-          looked up to find its official site first. Only public pages are read, one
-          site at a time, and robots.txt is respected. You can also upload a CSV with{' '}
+          College names or websites, one per line. Or upload a CSV with{' '}
           <code>college, website, city, state</code>.
         </p>
         <textarea

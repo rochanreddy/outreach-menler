@@ -162,11 +162,6 @@ function Recipients({ id, rev, onChange }) {
           </tbody>
         </table>
       </div>
-      <p className="hint" style={{ marginTop: 10 }}>
-        Opens are a soft signal — image blocking hides plenty of real reads, so treat
-        “not yet” as unknown rather than ignored. Marking someone as replied stops
-        their follow-ups immediately.
-      </p>
     </div>
   );
 }
@@ -181,7 +176,6 @@ function NextSteps({ done, go }) {
   return (
     <div className="card">
       <h2>Before this can go live</h2>
-      <p className="hint">Each line turns green on its own. Click one to jump straight to it.</p>
       <ol className="guide">
         {done.map((s, i) => (
           <li key={s.label} className={s.ok ? 'done' : i === next ? 'now' : ''}>
@@ -236,12 +230,6 @@ function Enroller({ id, onDone }) {
   return (
     <div className="card" id="who-gets-this">
       <h2>Add recipients</h2>
-      <p className="hint">
-        Pick people from your contact database and add them to this campaign.
-        <b> Collecting contacts doesn’t email them</b> — this step is what does.
-        Leave a box empty to ignore it; unsubscribes, bounces and the do-not-contact
-        list are always excluded, and nobody is added twice.
-      </p>
       <div className="row">
         <label className="field grow"><span>Role — matches designation or address</span>
           <input value={f.role} onChange={(e) => set('role', e.target.value)}
@@ -280,12 +268,7 @@ function Enroller({ id, onDone }) {
             {' '}· <b>{preview.wouldEnroll}</b> would be added
           </p>
           {preview.matched === 0 && (
-            <p className="hint">
-              Nothing matched. Either the filters above are too narrow — clear the role,
-              city and state boxes and preview again — or these contacts haven’t been
-              imported yet. Check the <b>Contacts</b> page: if it’s empty, go to{' '}
-              <b>Find contacts</b>, run a scrape, and click <b>Import the good ones</b> first.
-            </p>
+            <p className="hint">Nothing matched — try clearing the filters above.</p>
           )}
           {preview.sample?.length > 0 && (
             <div className="table-wrap">
@@ -500,9 +483,6 @@ function Editor({ id, onBack }) {
       {tab === 'write' && (
       <div className="card">
         <h2>Your email and its follow-ups</h2>
-        <p className="hint">
-          Follow-ups only go to people who haven’t replied, and stop the moment they do.
-        </p>
         <div className="tpl-bar">
           <span className="hint">Start from a template:</span>
           {TEMPLATES.map((t) => (
@@ -515,9 +495,6 @@ function Editor({ id, onBack }) {
               }}>{t.label}</button>
           ))}
         </div>
-        <p className="hint" style={{ marginTop: -4, marginBottom: 14 }}>
-          These are written and ready to send. Edit the wording to sound like you — then send yourself a test below.
-        </p>
         {c.steps.map((s, i) => (
           <div className="step" key={i}>
             <div className="step-head">
@@ -568,10 +545,6 @@ function Editor({ id, onBack }) {
       {tab === 'test' && (
       <div className="card">
         <h2>Send yourself a test</h2>
-        <p className="hint">
-          This sends the first email to you, exactly as a recipient would get it —
-          placeholders filled, unsubscribe footer attached. It doesn’t touch your recipients.
-        </p>
         <div className="row">
           <input className="grow" placeholder="your@email.com" value={testTo}
             onChange={(e) => setTestTo(e.target.value)}
@@ -648,7 +621,6 @@ function Editor({ id, onBack }) {
         {!live && <NextSteps done={checks} go={setTab} />}
         <div className="card">
           <h2>Sender and pacing</h2>
-          <p className="hint">Set once. Slow, steady sending is what keeps you out of spam folders.</p>
           <div className="row">
             <label className="field grow"><span>Campaign name</span>
               <input value={c.name} onChange={(e) => set('name', e.target.value)} />
@@ -744,24 +716,16 @@ export default function Campaigns() {
     <>
       <div className="page-head">
         <h1>Campaigns</h1>
-        <p>
-          A campaign is one email plus its follow-ups, sent to a list of contacts.
-          Follow-ups stop by themselves the moment someone replies.
-        </p>
       </div>
 
       <div className="card">
         <h2>Start a new one</h2>
-        <p className="hint">Name it after who you’re contacting, so the team can tell them apart later.</p>
         <div className="row">
           <input className="grow" placeholder="e.g. Hyderabad engineering colleges — August"
             value={name} onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && create()} />
           <button className="btn" onClick={create} disabled={!name.trim()}>Create campaign</button>
         </div>
-        <p className="hint" style={{ marginTop: 10 }}>
-          It opens with a written email already in place — you only edit the wording.
-        </p>
       </div>
 
       {err && <p className="err">{err}</p>}

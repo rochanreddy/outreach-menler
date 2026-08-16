@@ -189,9 +189,6 @@ export default function Home({ go }) {
     <>
       <div className="page-head">
         <h1>Outreach Dashboard</h1>
-        <p>
-          Live overview of all campaigns, recipient engagement, email opens, replies, and sent activity.
-        </p>
       </div>
 
       {/* The sending status lives here now rather than on its own tab. A

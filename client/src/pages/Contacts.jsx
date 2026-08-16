@@ -107,10 +107,6 @@ export default function Contacts() {
     <>
       <div className="page-head">
         <h1>Contacts</h1>
-        <p>
-          Everyone you’ve collected, in one place. This is your address book — being
-          listed here doesn’t email anyone. To do that, add them to a campaign.
-        </p>
       </div>
 
       {/* Moved here from the old Sending health tab. It belongs with the
@@ -122,9 +118,7 @@ export default function Contacts() {
           Do-not-contact list {sup.length > 0 && <span className="muted">— {sup.length}</span>}
         </summary>
         <p className="hint" style={{ marginTop: 12 }}>
-          Nobody here is ever emailed. Unsubscribes and hard bounces land here on their own
-          and are checked before every send — including across re-imports, so a removed
-          contact stays removed. Add a whole domain to block an entire college.
+          Nobody here is ever emailed. Add a domain to block a whole college.
         </p>
         <div className="row">
           <input className="grow" placeholder="person@college.edu or college.edu (whole domain)"
@@ -154,9 +148,7 @@ export default function Contacts() {
         <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Upload a CSV</summary>
         <p className="hint" style={{ marginTop: 12 }}>
           Columns: <code>college, city, state, website, type, student_count, name, designation,
-          department, email, phone, linkedin</code>. One row per person; colleges are matched on
-          name + city so several contacts group under one college. Duplicates and anyone on the
-          do-not-contact list are skipped automatically.
+          department, email, phone, linkedin</code>
         </p>
         <div className="row">
           <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={doImport} className="grow" />
