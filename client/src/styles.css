@@ -89,8 +89,6 @@ a { color: var(--violet); }
 .nav-tabs { display: flex; gap: 2px; overflow-x: auto; flex: 1; scrollbar-width: none; }
 .nav-tabs::-webkit-scrollbar { display: none; }
 
-/* Numbered tabs. The number is the teaching device — it states the order of
-   the workflow without a paragraph of explanation. */
 .nav-tab {
   background: none; border: 0; color: #b9b3e2; cursor: pointer;
   padding: 15px 13px; white-space: nowrap;
@@ -100,13 +98,6 @@ a { color: var(--violet); }
 }
 .nav-tab:hover { color: #fff; }
 .nav-tab.on { color: #fff; font-weight: 650; border-bottom-color: #8b81e8; }
-.nav-num {
-  display: grid; place-items: center;
-  width: 19px; height: 19px; border-radius: 999px;
-  background: rgba(255, 255, 255, .15); color: #fff;
-  font-size: 10.5px; font-weight: 700;
-}
-.nav-tab.on .nav-num { background: #8b81e8; }
 
 .nav-out {
   background: none; border: 1px solid rgba(255, 255, 255, .22); color: #d6d2f0;
@@ -117,7 +108,6 @@ a { color: var(--violet); }
 
 .wrap { padding: 24px 20px 72px; max-width: 1080px; margin: 0 auto; }
 
-/* A one-line explanation of the screen you just opened. */
 .page-head { margin-bottom: 24px; }
 .page-head h1 { margin-bottom: 7px; }
 .page-head p { color: var(--muted); max-width: 66ch; margin: 0; font-size: 14.5px; }

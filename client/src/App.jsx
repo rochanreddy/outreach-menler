@@ -50,16 +50,12 @@ function Login({ onIn }) {
   );
 }
 
-/**
- * Tabs are numbered and ordered by the actual workflow. Naming them after
- * features ("Find contacts", "Colleges & contacts", "Campaigns") left no clue
- * that they run in sequence, which is the thing new people get wrong first.
- */
+// Ordered by the workflow: find colleges, then contacts, then campaigns.
 const TABS = [
   { key: 'home', label: 'Home' },
-  { key: 'finder', label: 'Find colleges', num: 1 },
-  { key: 'contacts', label: 'Contacts', num: 2 },
-  { key: 'campaigns', label: 'Campaigns', num: 3 },
+  { key: 'finder', label: 'Find colleges' },
+  { key: 'contacts', label: 'Contacts' },
+  { key: 'campaigns', label: 'Campaigns' },
 ];
 
 export default function App() {
@@ -94,7 +90,6 @@ export default function App() {
         <div className="nav-tabs">
           {TABS.map((t) => (
             <button key={t.key} className={`nav-tab ${tab === t.key ? 'on' : ''}`} onClick={() => go(t.key)}>
-              {t.num && <span className="nav-num">{t.num}</span>}
               {t.label}
             </button>
           ))}
