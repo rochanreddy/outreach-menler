@@ -188,22 +188,40 @@ router.post('/:id/enroll', requireAuth, async (req, res) => {
       contacts = await Contact.find(filter).limit(Number(b.limit) || 500);
     }
 
+    /* Anyone already in a campaign is left out by default.
+     *
+     * Re-uploading a contact list that overlaps an earlier one is normal, and
+     * without this those people are enrolled again and receive a second cold
+     * approach from the same company — the fastest way to get marked as spam.
+     * The unique index only stops a repeat inside one campaign; it says nothing
+     * about the campaign before it. */
+    const ids = contacts.map((c) => c._id);
+    const contactedIds = new Set(
+      (await Enrollment.find({ contact: { $in: ids } }).select('contact').lean())
+        .map((e) => String(e.contact)),
+    );
+    const alreadyHere = await Enrollment.countDocuments({
+      campaign: campaign._id,
+      contact: { $in: ids },
+    });
+
+    const fresh = b.includeContacted ? contacts : contacts.filter((c) => !contactedIds.has(String(c._id)));
+    // Contacted elsewhere, as opposed to already in this campaign.
+    const contactedElsewhere = Math.max(0, contactedIds.size - alreadyHere);
+
     // Count-only mode, so you can see who'd be included before committing.
     if (b.dryRun) {
-      const already = await Enrollment.countDocuments({
-        campaign: campaign._id,
-        contact: { $in: contacts.map((c) => c._id) },
-      });
       return res.json({
         matched: contacts.length,
-        alreadyEnrolled: already,
-        wouldEnroll: Math.max(0, contacts.length - already),
-        sample: contacts.slice(0, 8).map((c) => ({ email: c.email, designation: c.designation })),
+        alreadyEnrolled: alreadyHere,
+        alreadyContacted: contactedElsewhere,
+        wouldEnroll: b.includeContacted ? Math.max(0, contacts.length - alreadyHere) : fresh.length,
+        sample: fresh.slice(0, 8).map((c) => ({ email: c.email, designation: c.designation })),
       });
     }
 
-    const out = { enrolled: 0, skipped: 0 };
-    for (const contact of contacts) {
+    const out = { enrolled: 0, skipped: 0, skippedContacted: contacts.length - fresh.length };
+    for (const contact of fresh) {
       if (!contact.isSendable() || await isSuppressed(contact.email)) { out.skipped += 1; continue; }
       try {
         await Enrollment.create({

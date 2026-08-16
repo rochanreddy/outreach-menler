@@ -221,7 +221,11 @@ function Enroller({ id, onDone }) {
     setBusy(true); setErr(''); setMsg('');
     try {
       const r = await api.enroll(id, f);
-      setMsg(`Added ${r.enrolled} recipient${r.enrolled === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} already on the list` : ''}.`);
+      setMsg([
+        `Added ${r.enrolled} recipient${r.enrolled === 1 ? '' : 's'}`,
+        r.skippedContacted ? `${r.skippedContacted} skipped — already contacted before` : '',
+        r.skipped ? `${r.skipped} skipped — unsubscribed, bounced or already here` : '',
+      ].filter(Boolean).join(' · ') + '.');
       setPreview(null);
       onDone?.();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -265,10 +269,25 @@ function Enroller({ id, onDone }) {
           <p className="hint">
             <b>{preview.matched}</b> match{preview.matched === 1 ? '' : 'es'}
             {preview.alreadyEnrolled ? ` · ${preview.alreadyEnrolled} already in this campaign` : ''}
+            {preview.alreadyContacted ? ` · ${preview.alreadyContacted} already contacted in another campaign` : ''}
             {' '}· <b>{preview.wouldEnroll}</b> would be added
           </p>
           {preview.matched === 0 && (
             <p className="hint">Nothing matched — try clearing the filters above.</p>
+          )}
+
+          {/* Re-uploading an overlapping list is normal, so the overlap is held
+              back rather than silently emailed a second time. Overridable,
+              because contacting someone again is sometimes deliberate. */}
+          {preview.alreadyContacted > 0 && (
+            <label className="row" style={{ gap: 8, marginTop: 4 }}>
+              <input type="checkbox" style={{ width: 'auto' }}
+                checked={f.includeContacted || false}
+                onChange={(e) => set('includeContacted', e.target.checked)} />
+              <span className="hint">
+                Email the {preview.alreadyContacted} who had a previous campaign too
+              </span>
+            </label>
           )}
           {preview.sample?.length > 0 && (
             <div className="table-wrap">
